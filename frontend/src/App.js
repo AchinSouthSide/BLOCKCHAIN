@@ -4,6 +4,9 @@ import ContractService from './services/ContractService';
 import FieldList from './components/FieldList';
 import CreateField from './components/CreateField';
 import BookingList from './components/BookingList';
+import BookingManagement from './components/BookingManagement';
+import OwnerDashboard from './components/OwnerDashboard';
+import Balance from './components/Balance';
 import WalletConnect from './components/WalletConnect';
 
 function App() {
@@ -11,6 +14,7 @@ function App() {
   const [userAddress, setUserAddress] = useState('');
   const [activeTab, setActiveTab] = useState('browse');
   const [contract, setContract] = useState(null);
+  const [isPlatformOwner, setIsPlatformOwner] = useState(false);
 
   useEffect(() => {
     checkWalletConnection();
@@ -18,11 +22,15 @@ function App() {
 
   const checkWalletConnection = async () => {
     try {
-      const { isConnected, address, contractInstance } = await ContractService.connectWallet();
-      if (isConnected) {
+      const result = await ContractService.connectWallet();
+      if (result.isConnected) {
         setIsConnected(true);
-        setUserAddress(address);
-        setContract(contractInstance);
+        setUserAddress(result.address);
+        setContract(result.contract);
+        
+        // Check if user is platform owner
+        const platformOwner = await result.contract.platformOwner();
+        setIsPlatformOwner(platformOwner.toLowerCase() === result.address.toLowerCase());
       }
     } catch (error) {
       console.log('Wallet not connected yet');
@@ -34,9 +42,8 @@ function App() {
   };
 
   const handleNetworkChanged = async () => {
-    // Check if we're on Sepolia (11155111) or localhost
     const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (chainId !== '0xaa36a7' && chainId !== '0x7a69') { // Sepolia & Localhost
+    if (chainId !== '0xaa36a7' && chainId !== '0x7a69') {
       alert('Vui lòng chuyển đến Sepolia testnet hoặc localhost');
     }
   };
@@ -48,6 +55,7 @@ function App() {
 
   return (
     <div className="App">
+      {/* ===== NAVBAR ===== */}
       <nav className="navbar">
         <div className="navbar-brand">
           <h1>🏟️ FieldBooking</h1>
@@ -62,31 +70,97 @@ function App() {
 
       {isConnected ? (
         <main className="container">
+          {/* ===== TAB BUTTONS ===== */}
           <div className="tab-buttons">
+            {/* Common tabs */}
             <button 
               className={`tab-btn ${activeTab === 'browse' ? 'active' : ''}`}
               onClick={() => setActiveTab('browse')}
+              title="Duyệt và đặt sân"
             >
               🔍 Tìm sân
             </button>
+
             <button 
-              className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`}
-              onClick={() => setActiveTab('create')}
-            >
-              ➕ Tạo sân
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'mybookings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('mybookings')}
+              className={`tab-btn ${activeTab === 'my-bookings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('my-bookings')}
+              title="Xem các đặt sân của bạn"
             >
               📅 Đặt sân của tôi
             </button>
+
+            <button 
+              className={`tab-btn ${activeTab === 'booking-management' ? 'active' : ''}`}
+              onClick={() => setActiveTab('booking-management')}
+              title="Quản lý đặt sân"
+            >
+              📋 Quản lý booking
+            </button>
+
+            {/* Separator */}
+            <div className="tab-separator"></div>
+
+            {/* Owner tabs */}
+            <button 
+              className={`tab-btn ${activeTab === 'owner-dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('owner-dashboard')}
+              title="Dashboard chủ sân"
+            >
+              👨‍💼 Dashboard
+            </button>
+
+            <button 
+              className={`tab-btn ${activeTab === 'create-field' ? 'active' : ''}`}
+              onClick={() => setActiveTab('create-field')}
+              title="Tạo sân mới"
+            >
+              ➕ Tạo sân
+            </button>
+
+            <button 
+              className={`tab-btn ${activeTab === 'balance' ? 'active' : ''}`}
+              onClick={() => setActiveTab('balance')}
+              title="Xem doanh thu và rút tiền"
+            >
+              💰 Doanh thu
+            </button>
           </div>
 
+          {/* ===== TAB CONTENT ===== */}
           <div className="tab-content">
-            {activeTab === 'browse' && contract && <FieldList contract={contract} />}
-            {activeTab === 'create' && contract && <CreateField contract={contract} />}
-            {activeTab === 'mybookings' && contract && <BookingList contract={contract} userAddress={userAddress} />}
+            {/* BROWSE FIELDS */}
+            {activeTab === 'browse' && contract && (
+              <FieldList contract={contract} />
+            )}
+
+            {/* MY BOOKINGS */}
+            {activeTab === 'my-bookings' && contract && (
+              <BookingList contract={contract} userAddress={userAddress} />
+            )}
+
+            {/* BOOKING MANAGEMENT */}
+            {activeTab === 'booking-management' && contract && (
+              <BookingManagement contract={contract} userAddress={userAddress} />
+            )}
+
+            {/* OWNER DASHBOARD */}
+            {activeTab === 'owner-dashboard' && contract && (
+              <OwnerDashboard contract={contract} userAddress={userAddress} />
+            )}
+
+            {/* CREATE FIELD */}
+            {activeTab === 'create-field' && contract && (
+              <CreateField contract={contract} />
+            )}
+
+            {/* BALANCE / EARNINGS */}
+            {activeTab === 'balance' && contract && (
+              <Balance 
+                contract={contract} 
+                userAddress={userAddress}
+                isPlatformOwner={isPlatformOwner}
+              />
+            )}
           </div>
         </main>
       ) : (

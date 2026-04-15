@@ -1,0 +1,259 @@
+/* ===== BOOKING MANAGEMENT ===== */
+.booking-management-container {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.booking-header {
+  margin-bottom: 2rem;
+}
+
+.booking-header h2 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 1rem;
+}
+
+/* ===== FILTER BUTTONS ===== */
+.filter-buttons {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 0.7rem 1.2rem;
+  border: 2px solid #e0e0e0;
+  background: white;
+  color: #333;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.filter-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ===== BOOKINGS CONTAINER ===== */
+.bookings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.booking-card {
+  background: #f8f9fa;
+  border-left: 5px solid #667eea;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.booking-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Booking Header */
+.booking-card .booking-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.5rem;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.booking-id h3 {
+  margin: 0 0 0.3rem 0;
+  color: #333;
+}
+
+.booking-id .field-id {
+  margin: 0;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* Booking Details */
+.booking-details {
+  padding: 1.5rem;
+  background: white;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.detail-row .label {
+  font-weight: bold;
+  color: #666;
+}
+
+.detail-row .value {
+  color: #333;
+  word-break: break-word;
+}
+
+/* Booking Actions */
+.booking-actions {
+  display: flex;
+  gap: 0.8rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  flex-wrap: wrap;
+}
+
+.checkin-btn, .complete-btn, .refund-btn, .cancel-btn {
+  padding: 0.7rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.checkin-btn {
+  background: #28a745;
+  color: white;
+}
+
+.checkin-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.complete-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.complete-btn:hover:not(:disabled) {
+  background: #138496;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+}
+
+.complete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refund-btn {
+  background: #ffc107;
+  color: black;
+}
+
+.refund-btn:hover:not(:disabled) {
+  background: #e0a800;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+.refund-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.status-info {
+  padding: 0.7rem 1.2rem;
+  background: #f0f0f0;
+  border-radius: 6px;
+  color: #666;
+  font-weight: 500;
+  display: inline-block;
+}
+
+/* No Bookings Message */
+.no-bookings {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #999;
+  font-size: 1.1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #667eea;
+  font-size: 1.2rem;
+}
+
+.status-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: bold;
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .booking-card .booking-header {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .detail-row {
+    grid-template-columns: 100px 1fr;
+    gap: 0.5rem;
+  }
+
+  .booking-actions {
+    flex-direction: column;
+  }
+
+  .checkin-btn, .complete-btn, .refund-btn, .cancel-btn {
+    width: 100%;
+  }
+
+  .filter-buttons {
+    flex-direction: column;
+  }
+
+  .filter-btn {
+    width: 100%;
+  }
+}

@@ -165,6 +165,167 @@ class ContractService {
       throw error;
     }
   }
+
+  // ===== OWNER FUNCTIONS =====
+  static async confirmBooking(contract, bookingId) {
+    try {
+      const tx = await contract.confirmBooking(bookingId);
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error confirming booking:', error);
+      throw error;
+    }
+  }
+
+  static async completeBooking(contract, bookingId) {
+    try {
+      const tx = await contract.completeBooking(bookingId);
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error completing booking:', error);
+      throw error;
+    }
+  }
+
+  static async refundBooking(contract, bookingId) {
+    try {
+      const tx = await contract.refundBooking(bookingId);
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error refunding booking:', error);
+      throw error;
+    }
+  }
+
+  static async updateField(contract, fieldId, name, location, description, pricePerHour) {
+    try {
+      const tx = await contract.updateField(
+        fieldId,
+        name,
+        location,
+        description,
+        ethers.parseEther(pricePerHour.toString())
+      );
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error updating field:', error);
+      throw error;
+    }
+  }
+
+  static async toggleFieldStatus(contract, fieldId) {
+    try {
+      const tx = await contract.toggleFieldStatus(fieldId);
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error toggling field status:', error);
+      throw error;
+    }
+  }
+
+  static async getFieldBookings(contract, fieldId) {
+    try {
+      const bookingIds = await contract.getFieldBookings(fieldId);
+      const bookings = [];
+
+      for (const bookingId of bookingIds) {
+        try {
+          const booking = await contract.getBooking(bookingId);
+          if (booking.id !== 0) {
+            bookings.push({
+              ...booking,
+              id: Number(booking.id),
+              fieldId: Number(booking.fieldId),
+              totalPrice: ethers.formatEther(booking.totalPrice),
+              startTime: Number(booking.startTime),
+              endTime: Number(booking.endTime)
+            });
+          }
+        } catch (error) {
+          // Skip bookings that can't be retrieved
+        }
+      }
+
+      return bookings;
+    } catch (error) {
+      console.error('Error fetching field bookings:', error);
+      throw error;
+    }
+  }
+
+  static async withdraw(contract) {
+    try {
+      const tx = await contract.withdraw();
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error withdrawing earnings:', error);
+      throw error;
+    }
+  }
+
+  static async withdrawPlatformFee(contract) {
+    try {
+      const tx = await contract.withdrawPlatformFee();
+      await tx.wait();
+      return tx.hash;
+    } catch (error) {
+      console.error('Error withdrawing platform fee:', error);
+      throw error;
+    }
+  }
+
+  static async getOwnerEarnings(contract, ownerAddress) {
+    try {
+      const earnings = await contract.ownerEarnings(ownerAddress);
+      return ethers.formatEther(earnings);
+    } catch (error) {
+      console.error('Error fetching owner earnings:', error);
+      throw error;
+    }
+  }
+
+  static async getPlatformEarnings(contract) {
+    try {
+      const earnings = await contract.platformEarnings();
+      return ethers.formatEther(earnings);
+    } catch (error) {
+      console.error('Error fetching platform earnings:', error);
+      throw error;
+    }
+  }
+
+  static async getOwnerFields(contract, ownerAddress) {
+    try {
+      const fieldCounter = await contract.fieldCounter();
+      const fields = [];
+
+      for (let i = 1; i <= fieldCounter; i++) {
+        try {
+          const field = await contract.getField(i);
+          if (field.id !== 0 && field.owner.toLowerCase() === ownerAddress.toLowerCase()) {
+            fields.push({
+              ...field,
+              id: Number(field.id),
+              pricePerHour: ethers.formatEther(field.pricePerHour)
+            });
+          }
+        } catch (error) {
+          // Skip fields that can't be retrieved
+        }
+      }
+
+      return fields;
+    } catch (error) {
+      console.error('Error fetching owner fields:', error);
+      throw error;
+    }
+  }
 }
 
 export default ContractService;

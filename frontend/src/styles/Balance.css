@@ -1,0 +1,181 @@
+/* ===== BALANCE / EARNINGS CONTAINER ===== */
+.balance-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+/* ===== EARNINGS CARD ===== */
+.earnings-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.earnings-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.earnings-card.platform-earnings {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Earnings Header */
+.earnings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.earnings-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.earnings-amount {
+  font-size: 2.5rem;
+  font-weight: bold;
+  display: block;
+  text-align: right;
+}
+
+/* Earnings Info */
+.earnings-info {
+  margin-bottom: 1.5rem;
+}
+
+.earnings-info p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+/* Withdraw Button */
+.withdraw-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  border: 2px solid white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.withdraw-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.withdraw-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== BALANCE INFO ===== */
+.balance-info {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.balance-info h4 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 0.5rem;
+}
+
+.balance-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.balance-info li {
+  margin: 0.8rem 0;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Loading State */
+.balance-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #667eea;
+  font-size: 1.2rem;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .balance-container {
+    grid-template-columns: 1fr;
+  }
+
+  .earnings-card {
+    padding: 1.5rem;
+  }
+
+  .earnings-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .earnings-header h3 {
+    align-self: flex-start;
+  }
+
+  .earnings-amount {
+    text-align: center;
+  }
+
+  .withdraw-btn {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .balance-info {
+    padding: 1.5rem;
+  }
+
+  .balance-info ul {
+    padding-left: 1.2rem;
+  }
+
+  .balance-info li {
+    font-size: 0.95rem;
+  }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.earnings-card {
+  animation: slideUp 0.3s ease;
+}
+
+.balance-info {
+  animation: slideUp 0.4s ease;
+}

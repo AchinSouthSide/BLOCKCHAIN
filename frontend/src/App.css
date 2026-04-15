@@ -35,6 +35,13 @@
   gap: 10px;
   margin-bottom: 30px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tab-separator {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 0 10px;
 }
 
 .tab-btn {
@@ -47,6 +54,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {

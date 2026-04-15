@@ -1,24 +1,28 @@
 .wallet-connect {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 16px;
 }
 
 .connect-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 15px;
   transition: all 0.3s ease;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.connect-btn:hover {
+.connect-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 18px rgba(102, 126, 234, 0.4);
 }
 
 .connect-btn:disabled {
@@ -30,33 +34,82 @@
 .wallet-info {
   display: flex;
   align-items: center;
-  gap: 15px;
-  background: rgba(102, 126, 234, 0.1);
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 2px solid #667eea;
+  gap: 16px;
+  background: rgba(102, 126, 234, 0.08);
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .status {
-  font-weight: 600;
+  font-weight: 700;
   color: #28a745;
   font-size: 14px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .address {
-  font-family: 'Courier New', monospace;
+  font-family: 'Courier New', 'Monaco', monospace;
   color: #667eea;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  word-break: break-all;
+  letter-spacing: 0.5px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+  .wallet-connect {
+    gap: 12px;
+  }
+
+  .connect-btn {
+    padding: 11px 20px;
+    font-size: 14px;
+  }
+
   .wallet-info {
-    flex-direction: column;
-    gap: 8px;
+    padding: 10px 18px;
+    gap: 12px;
   }
 
   .address {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .wallet-connect {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .connect-btn {
+    width: 100%;
+    padding: 12px 16px;
+  }
+
+  .wallet-info {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .address {
+    font-size: 12px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .connect-btn {
+    font-size: 13px;
+    padding: 11px 14px;
+  }
+
+  .status {
     font-size: 12px;
   }
 }

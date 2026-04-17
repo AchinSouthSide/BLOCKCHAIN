@@ -193,18 +193,6 @@ class ContractService {
     }
   }
 
-  // ===== OWNER FUNCTIONS =====
-  static async confirmBooking(contract, bookingId) {
-    try {
-      const tx = await contract.confirmBooking(bookingId);
-      await tx.wait();
-      return tx.hash;
-    } catch (error) {
-      console.error('Error confirming booking:', error);
-      throw error;
-    }
-  }
-
   static async completeBooking(contract, bookingId) {
     try {
       const tx = await contract.completeBooking(bookingId);

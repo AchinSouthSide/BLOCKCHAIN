@@ -215,8 +215,12 @@ class ABIValidationTests {
 
   static testABIIsArray() {
     try {
-      // Check if ABI can be loaded from the module
-      const abi = typeof FIELD_BOOKING_ABI !== 'undefined' ? FIELD_BOOKING_ABI : window.FIELD_BOOKING_ABI;
+      // Check if ABI is available globally
+      const abi = window.FIELD_BOOKING_ABI;
+      
+      if (!abi) {
+        throw new Error('FIELD_BOOKING_ABI not found in window');
+      }
       
       if (!Array.isArray(abi)) {
         throw new Error(`ABI is not array. Type: ${typeof abi}`);

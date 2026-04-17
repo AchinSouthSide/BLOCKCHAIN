@@ -10,6 +10,9 @@ import Navbar from './components/Navbar';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 
+// Import ABI loader first (makes FIELD_BOOKING_ABI available globally)
+import './services/abi/index.js';
+
 // Import test suite
 import TestRunner from './tests/UnitTests';
 

@@ -21,8 +21,9 @@ if (!Array.isArray(CONTRACT_ARTIFACT.abi)) {
 // Export apenas o ABI array
 export const FIELD_BOOKING_ABI = CONTRACT_ARTIFACT.abi;
 
-// Log para debug
+// Make available globally for tests
 if (typeof window !== 'undefined') {
+  window.FIELD_BOOKING_ABI = CONTRACT_ARTIFACT.abi;
   const methodCount = CONTRACT_ARTIFACT.abi.filter(item => item.type === 'function').length;
   console.log('✅ ABI loaded successfully. Methods count:', methodCount);
 }

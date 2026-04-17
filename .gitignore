@@ -44,3 +44,7 @@ logs/
 
 # Deployment info
 deployment.json
+
+# Backups (avoid committing env snapshots)
+**/frontend.env
+**/frontend.env.local

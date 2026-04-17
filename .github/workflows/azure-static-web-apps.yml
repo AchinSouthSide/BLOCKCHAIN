@@ -17,6 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
       # CRA uses build-time env vars. Put your values in GitHub repo Variables/Secrets.
       # Recommended (Hardhat local mode):
       # - REACT_APP_NETWORK_ID=31337

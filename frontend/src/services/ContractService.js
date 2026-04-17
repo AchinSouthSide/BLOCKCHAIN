@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import CONTRACT_ABI from './abi/FieldBooking.json';
+import { FIELD_BOOKING_ABI } from './abi/index.js';
 
 class ContractService {
   static async connectWallet() {
@@ -41,7 +41,7 @@ class ContractService {
 
       const contract = new ethers.Contract(
         contractAddress,
-        CONTRACT_ABI.abi,
+        FIELD_BOOKING_ABI,
         signer
       );
       

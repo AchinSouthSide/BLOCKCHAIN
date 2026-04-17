@@ -10,6 +10,9 @@ import Navbar from './components/Navbar';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 
+// Import test suite
+import TestRunner from './tests/UnitTests';
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -19,6 +22,13 @@ function App() {
   // Initialize auth state on mount
   useEffect(() => {
     console.log('[App] Initializing...');
+    
+    // Make TestRunner available globally
+    if (typeof window !== 'undefined') {
+      window.TestRunner = TestRunner;
+      console.log('✅ Test suite loaded. Type: TestRunner.runAll() in console to run tests');
+    }
+    
     const user = AuthService.getCurrentUser();
     
     if (user && user.isLoggedIn) {

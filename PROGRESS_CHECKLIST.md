@@ -82,39 +82,39 @@
 
 ### Components
 - ✅ **WalletConnect.js** - Kết nối MetaMask
-  - [ ] Hiển thị trạng thái kết nối
-  - [ ] Hiển thị địa chỉ ví
-  - [ ] Nút kết nối
+  - [✅] Hiển thị trạng thái kết nối
+  - [✅] Hiển thị địa chỉ ví
+  - [✅] Nút kết nối
 
 - ✅ **FieldList.js** - Tìm sân
-  - [ ] Danh sách tất cả sân
-  - [ ] Hiển thị thông tin sân
-  - [ ] Modal đặt sân
-  - [ ] Chọn ngày/giờ
-  - [ ] Tính giá tự động
+  - [✅] Danh sách tất cả sân
+  - [✅] Hiển thị thông tin sân
+  - [✅] Modal đặt sân
+  - [✅] Chọn ngày/giờ
+  - [✅] Tính giá tự động
 
 - ✅ **CreateField.js** - Tạo sân
-  - [ ] Form tạo sân mới
-  - [ ] Validate dữ liệu
-  - [ ] Submit transaction
-  - [ ] Loading indicator
+  - [✅] Form tạo sân mới
+  - [✅] Validate dữ liệu
+  - [✅] Submit transaction
+  - [✅] Loading indicator
 
 - ✅ **BookingList.js** - Quản lý đặt sân
-  - [ ] Danh sách đặt sân của tôi
-  - [ ] Hiển thị trạng thái
-  - [ ] Nút hủy/check-in
-  - [ ] Color badge theo trạng thái
+  - [✅] Danh sách đặt sân của tôi
+  - [✅] Hiển thị trạng thái
+  - [✅] Nút hủy/check-in
+  - [✅] Color badge theo trạng thái
 
 ### Services
 - ✅ **ContractService.js** - Kết nối contract
-  - [ ] connectWallet()
-  - [ ] getAllFields()
-  - [ ] getUserBookings()
-  - [ ] createField()
-  - [ ] createBooking()
-  - [ ] confirmBooking()
-  - [ ] checkIn()
-  - [ ] cancelBooking()
+  - [✅] connectWallet()
+  - [✅] getAllFields()
+  - [✅] getUserBookings()
+  - [✅] createField()
+  - [✅] createBooking()
+  - [✅] confirmBooking()
+  - [✅] checkIn()
+  - [✅] cancelBooking()
 
 ### ABI & Configuration
 - ✅ `frontend/src/services/abi/FieldBooking.json`
@@ -136,37 +136,37 @@
 
 ### Test Suite (18 test total)
 - ✅ **Field Creation (4 tests)**
-  - [ ] Create field successfully
-  - [ ] Emit FieldCreated event
-  - [ ] Fail if price is 0
-  - [ ] Fail if name is empty
+  - [✅] Create field successfully
+  - [✅] Emit FieldCreated event
+  - [✅] Fail if price is 0
+  - [✅] Fail if name is empty
 
 - ✅ **Field Update (2 tests)**
-  - [ ] Update field successfully
-  - [ ] Not allow non-owner
+  - [✅] Update field successfully
+  - [✅] Not allow non-owner
 
 - ✅ **Booking Creation (5 tests)**
-  - [ ] Create booking successfully
-  - [ ] Emit BookingCreated event
-  - [ ] Fail if in the past
-  - [ ] Fail if insufficient payment
-  - [ ] Detect time conflicts
+  - [✅] Create booking successfully
+  - [✅] Emit BookingCreated event
+  - [✅] Fail if in the past
+  - [✅] Fail if insufficient payment
+  - [✅] Detect time conflicts
 
 - ✅ **Booking Confirmation (3 tests)**
-  - [ ] Confirm booking
-  - [ ] Emit BookingConfirmed event
-  - [ ] Not allow non-owner
+  - [✅] Confirm booking
+  - [✅] Emit BookingConfirmed event
+  - [✅] Not allow non-owner
 
 - ✅ **Check-in (2 tests)**
-  - [ ] Check-in successfully
-  - [ ] Emit CheckinCompleted event
+  - [✅] Check-in successfully
+  - [✅] Emit CheckinCompleted event
 
 - ✅ **Refund (2 tests)**
-  - [ ] Refund pending booking
-  - [ ] Emit RefundProcessed event
+  - [✅] Refund pending booking
+  - [✅] Emit RefundProcessed event
 
 - ✅ **Integration Test (1 test)**
-  - [ ] Complete flow: Create → Book → Confirm → Check-in → Complete
+  - [✅] Complete flow: Create → Book → Confirm → Check-in → Complete
 
 ### Test Configuration
 - ✅ `test/FieldBooking.test.js` - 18 passing tests
@@ -181,29 +181,29 @@
 
 ### File tài liệu
 - ✅ **README.md** (Đầy đủ & chi tiết)
-  - [ ] Cấu trúc project
-  - [ ] Yêu cầu hệ thống
-  - [ ] Cài đặt bước-từng-bước
-  - [ ] Deploy localhost
-  - [ ] Deploy Sepolia testnet
-  - [ ] Kết nối MetaMask
-  - [ ] Chạy frontend
-  - [ ] Hướng dẫn sử dụng
-  - [ ] Flow thực tế
-  - [ ] Troubleshooting
-  - [ ] FAQ
+  - [✅] Cấu trúc project
+  - [✅] Yêu cầu hệ thống
+  - [✅] Cài đặt bước-từng-bước
+  - [✅] Deploy localhost
+  - [✅] Deploy Sepolia testnet
+  - [✅] Kết nối MetaMask
+  - [✅] Chạy frontend
+  - [✅] Hướng dẫn sử dụng
+  - [✅] Flow thực tế
+  - [✅] Troubleshooting
+  - [✅] FAQ
 
 - ✅ **TEST_FLOW.md** (Test chi tiết)
-  - [ ] 7 Test case scenarios
-  - [ ] Step-by-step flow
-  - [ ] Expected outputs
-  - [ ] Debug guide
-  - [ ] Full integration test
+  - [✅] 7 Test case scenarios
+  - [✅] Step-by-step flow
+  - [✅] Expected outputs
+  - [✅] Debug guide
+  - [✅] Full integration test
 
 - ✅ **.env.example**
-  - [ ] SEPOLIA_RPC_URL template
-  - [ ] PRIVATE_KEY template
-  - [ ] ETHERSCAN_API_KEY template
+  - [✅] SEPOLIA_RPC_URL template
+  - [✅] PRIVATE_KEY template
+  - [✅] ETHERSCAN_API_KEY template
 
 ---
 
@@ -211,17 +211,17 @@
 
 ### Hardhat Configuration
 - ✅ `hardhat.config.js` - Config file
-  - [ ] Compiler version: 0.8.20
-  - [ ] Localhost network
-  - [ ] Sepolia network
-  - [ ] Etherscan verification
+  - [✅] Compiler version: 0.8.20
+  - [✅] Localhost network
+  - [✅] Sepolia network
+  - [✅] Etherscan verification
 
 ### Scripts
 - ✅ `scripts/deploy.js`
-  - [ ] Deploy contract
-  - [ ] Save deployment.json
-  - [ ] Etherscan verification
-  - [ ] Endpoint logging
+  - [✅] Deploy contract
+  - [✅] Save deployment.json
+  - [✅] Etherscan verification
+  - [✅] Endpoint logging
 
 ### NPM Scripts
 - ✅ `npm.cmd run test` - Chạy test

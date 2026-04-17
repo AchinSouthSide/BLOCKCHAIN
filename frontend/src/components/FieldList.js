@@ -20,10 +20,14 @@ function FieldList({ contract }) {
   const fetchFields = async () => {
     try {
       setLoading(true);
+      console.log('[FieldList] Fetching fields...');
       const fieldsData = await ContractService.getAllFields(contract);
+      console.log('[FieldList] Fields loaded:', fieldsData.length);
       setFields(fieldsData);
     } catch (error) {
-      alert('Error fetching fields: ' + error.message);
+      console.error('[FieldList] Error fetching fields:', error);
+      // Set empty list instead of alert
+      setFields([]);
     } finally {
       setLoading(false);
     }

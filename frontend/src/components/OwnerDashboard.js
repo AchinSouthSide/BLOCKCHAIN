@@ -25,12 +25,20 @@ function OwnerDashboard({ contract, userAddress }) {
   const loadOwnerData = async () => {
     try {
       setLoading(true);
+      console.log('[OwnerDashboard] Loading owner data...');
+      
       const fieldsData = await ContractService.getOwnerFields(contract, userAddress);
+      console.log('[OwnerDashboard] Fields loaded:', fieldsData.length);
       setFields(fieldsData);
+      
       const earningsData = await ContractService.getOwnerEarnings(contract, userAddress);
+      console.log('[OwnerDashboard] Earnings loaded:', earningsData);
       setEarnings(earningsData);
     } catch (error) {
-      alert('Error loading owner data: ' + error.message);
+      console.error('[OwnerDashboard] Error loading data:', error);
+      // Don't alert on initial load - fields might be empty
+      setFields([]);
+      setEarnings('0');
     } finally {
       setLoading(false);
     }

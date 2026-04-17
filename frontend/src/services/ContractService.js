@@ -79,7 +79,19 @@ class ContractService {
 
   static async getAllFields(contract) {
     try {
-      const fieldCounter = await contract.fieldCounter();
+      console.log('[ContractService] getAllFields() called');
+      
+      // Safely get field counter with error handling
+      let fieldCounter = 0;
+      try {
+        const counter = await contract.fieldCounter();
+        fieldCounter = Number(counter);
+        console.log('[ContractService] fieldCounter:', fieldCounter);
+      } catch (error) {
+        console.warn('[ContractService] fieldCounter() error (using 0):', error.message);
+        fieldCounter = 0;
+      }
+
       const fields = [];
 
       for (let i = 1; i <= fieldCounter; i++) {
@@ -93,13 +105,15 @@ class ContractService {
             });
           }
         } catch (error) {
+          console.warn('[ContractService] Error fetching field ' + i + ':', error.message);
           // Skip fields that can't be retrieved
         }
       }
 
+      console.log('[ContractService] Loaded ' + fields.length + ' fields');
       return fields;
     } catch (error) {
-      console.error('Error fetching fields:', error);
+      console.error('[ContractService] Error fetching fields:', error);
       throw error;
     }
   }
@@ -325,7 +339,19 @@ class ContractService {
 
   static async getOwnerFields(contract, ownerAddress) {
     try {
-      const fieldCounter = await contract.fieldCounter();
+      console.log('[ContractService] getOwnerFields() called for:', ownerAddress);
+      
+      // Safely get field counter with error handling
+      let fieldCounter = 0;
+      try {
+        const counter = await contract.fieldCounter();
+        fieldCounter = Number(counter);
+        console.log('[ContractService] fieldCounter:', fieldCounter);
+      } catch (error) {
+        console.warn('[ContractService] fieldCounter() error (using 0):', error.message);
+        fieldCounter = 0;
+      }
+
       const fields = [];
 
       for (let i = 1; i <= fieldCounter; i++) {
@@ -339,13 +365,15 @@ class ContractService {
             });
           }
         } catch (error) {
+          console.warn('[ContractService] Error fetching field ' + i + ':', error.message);
           // Skip fields that can't be retrieved
         }
       }
 
+      console.log('[ContractService] Loaded ' + fields.length + ' owner fields');
       return fields;
     } catch (error) {
-      console.error('Error fetching owner fields:', error);
+      console.error('[ContractService] Error fetching owner fields:', error);
       throw error;
     }
   }

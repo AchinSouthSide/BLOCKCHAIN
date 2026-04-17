@@ -19,15 +19,21 @@ function Balance({ contract, userAddress, isPlatformOwner }) {
   const loadEarnings = async () => {
     try {
       setLoading(true);
+      console.log('[Balance] Loading earnings for:', userAddress);
+      
       const earningsData = await ContractService.getOwnerEarnings(contract, userAddress);
+      console.log('[Balance] Earnings loaded:', earningsData);
       setEarnings(earningsData);
       
       if (isPlatformOwner) {
         const platformEarningsData = await ContractService.getPlatformEarnings(contract);
+        console.log('[Balance] Platform earnings:', platformEarningsData);
         setPlatformEarnings(platformEarningsData);
       }
     } catch (error) {
-      console.error('Error loading earnings:', error);
+      console.error('[Balance] Error loading earnings:', error);
+      setEarnings('0');
+      setPlatformEarnings('0');
     } finally {
       setLoading(false);
     }

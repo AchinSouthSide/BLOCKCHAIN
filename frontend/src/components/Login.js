@@ -28,18 +28,51 @@ function Login({ onLoginSuccess }) {
       console.log('[Login] Connecting to contract with address:', selectedAddress);
       const contractData = await ContractService.connectWallet(selectedAddress);
 
-      // Lock role: only platformOwner is admin
+      // Lock role: admin is determined on-chain (platformOwner OR delegated admins)
       let role = 'user';
       try {
-        const ownerAddress = await contractData.contract.platformOwner();
-        if (
-          ownerAddress &&
-          String(ownerAddress).toLowerCase() === String(selectedAddress).toLowerCase()
-        ) {
-          role = 'admin';
+        const contract = contractData?.contract;
+        if (contract) {
+          // Preferred: new contract API
+          if (typeof contract.isAdmin === 'function') {
+            try {
+              const isAdmin = await contract.isAdmin(selectedAddress);
+              if (isAdmin) role = 'admin';
+            } catch (e) {
+              const ownerAddress = await contract.platformOwner();
+              if (
+                ownerAddress &&
+                String(ownerAddress).toLowerCase() === String(selectedAddress).toLowerCase()
+              ) {
+                role = 'admin';
+              }
+            }
+          } else if (typeof contract.admins === 'function') {
+            try {
+              const isAdmin = await contract.admins(selectedAddress);
+              if (isAdmin) role = 'admin';
+            } catch (e) {
+              const ownerAddress = await contract.platformOwner();
+              if (
+                ownerAddress &&
+                String(ownerAddress).toLowerCase() === String(selectedAddress).toLowerCase()
+              ) {
+                role = 'admin';
+              }
+            }
+          } else {
+            // Backward-compatible: old contract API
+            const ownerAddress = await contract.platformOwner();
+            if (
+              ownerAddress &&
+              String(ownerAddress).toLowerCase() === String(selectedAddress).toLowerCase()
+            ) {
+              role = 'admin';
+            }
+          }
         }
       } catch (e) {
-        console.warn('[Login] Could not read platformOwner(); defaulting to user:', e?.message || e);
+        console.warn('[Login] Could not determine admin role from contract; defaulting to user:', e?.message || e);
       }
 
       // Đăng nhập
@@ -121,7 +154,7 @@ function Login({ onLoginSuccess }) {
             <div className="info-box">
               <h3>ℹ️ Thông tin</h3>
               <ul>
-                <li>✅ Quyền Admin được xác định tự động theo ví chủ hợp đồng (platformOwner)</li>
+                <li>✅ Quyền Admin được xác định tự động theo smart contract (platformOwner hoặc ví được cấp quyền)</li>
                 <li>✅ Bạn có thể dùng Hardhat local hoặc mạng khác (nếu đã deploy contract)</li>
                 <li>✅ Chọn ví trước khi đăng nhập</li>
                 <li>✅ Bạn có thể chuyển đổi tài khoản bất cứ lúc nào</li>

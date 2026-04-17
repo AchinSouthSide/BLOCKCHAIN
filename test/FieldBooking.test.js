@@ -40,7 +40,7 @@ describe('FieldBooking Smart Contract (current API)', function () {
 
     it('Non-owner cannot create a field', async function () {
       await expect(fieldBooking.connect(user1).createField('San A', PRICE_PER_HOUR))
-        .to.be.revertedWith('Only owner can call this');
+        .to.be.revertedWith('Only admin can call this');
     });
 
     it('Create field validates name and price', async function () {
@@ -66,7 +66,7 @@ describe('FieldBooking Smart Contract (current API)', function () {
       await fieldBooking.createField('San A', PRICE_PER_HOUR);
 
       await expect(fieldBooking.connect(user1).updateFieldPrice(1, PRICE_PER_HOUR))
-        .to.be.revertedWith('Only owner can call this');
+        .to.be.revertedWith('Only admin can call this');
 
       await expect(fieldBooking.updateFieldPrice(1, 0))
         .to.be.revertedWith('Price must be greater than 0');
@@ -193,7 +193,7 @@ describe('FieldBooking Smart Contract (current API)', function () {
       await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
 
       await expect(fieldBooking.connect(user2).confirmBooking(1))
-        .to.be.revertedWith('Only owner can call this');
+        .to.be.revertedWith('Only admin can call this');
 
       await expect(fieldBooking.confirmBooking(1))
         .to.emit(fieldBooking, 'BookingConfirmed');
@@ -234,6 +234,29 @@ describe('FieldBooking Smart Contract (current API)', function () {
 
       await expect(fieldBooking.connect(user1).cancelBooking(1))
         .to.be.revertedWith('Cannot cancel confirmed bookings');
+    });
+
+    it('Owner can add an admin; delegated admin can manage', async function () {
+      await expect(fieldBooking.connect(user1).addAdmin(user2.address))
+        .to.be.revertedWith('Only owner can call this');
+
+      await expect(fieldBooking.addAdmin(user2.address))
+        .to.emit(fieldBooking, 'AdminAdded')
+        .withArgs(user2.address);
+
+      const newPrice = ethers.parseEther('0.15');
+      await expect(fieldBooking.connect(user2).updateFieldPrice(1, newPrice))
+        .to.emit(fieldBooking, 'FieldUpdated')
+        .withArgs(1, newPrice);
+
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = newPrice * 2n;
+
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+      await expect(fieldBooking.connect(user2).confirmBooking(1))
+        .to.emit(fieldBooking, 'BookingConfirmed');
     });
   });
 

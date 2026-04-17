@@ -6,7 +6,7 @@ import '../styles/AdminPanel.css';
 /**
  * Admin Panel Component
  * Comprehensive admin-only interface for managing fields, statistics, and withdrawals
- * ALL FUNCTIONS ARE ADMIN-ONLY (verified in smart contract via onlyOwner)
+ * ALL FUNCTIONS ARE ADMIN-ONLY (verified in smart contract)
  */
 function AdminPanel({ contract, provider, address }) {
   // ==================== STATE MANAGEMENT ====================
@@ -40,19 +40,37 @@ function AdminPanel({ contract, provider, address }) {
   // ==================== ADMIN VERIFICATION ====================
 
   /**
-   * Verify current user is admin (platform owner)
-   * Smart contract validates onlyOwner for all admin functions
+   * Verify current user is admin (platformOwner OR delegated admin)
    */
   useEffect(() => {
     const verifyAdmin = async () => {
       try {
         if (contract && address) {
-          const platformOwner = await contract.platformOwner();
-          const isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
+          let isAdminUser = false;
+
+          if (typeof contract.isAdmin === 'function') {
+            try {
+              isAdminUser = await contract.isAdmin(address);
+            } catch (e) {
+              const platformOwner = await contract.platformOwner();
+              isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
+            }
+          } else if (typeof contract.admins === 'function') {
+            try {
+              isAdminUser = await contract.admins(address);
+            } catch (e) {
+              const platformOwner = await contract.platformOwner();
+              isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
+            }
+          } else {
+            const platformOwner = await contract.platformOwner();
+            isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
+          }
+
           setIsAdmin(isAdminUser);
           
           if (!isAdminUser) {
-            setError('❌ Bạn không có quyền Admin. Chỉ ví chủ hợp đồng (platformOwner) mới truy cập được.');
+            setError('❌ Bạn không có quyền Admin. Chỉ platformOwner hoặc ví được cấp quyền Admin mới truy cập được.');
           }
         }
       } catch (err) {

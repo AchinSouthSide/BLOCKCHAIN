@@ -54,6 +54,9 @@ contract FieldBooking {
     // Platform owner (admin)
     address public platformOwner;
 
+    // Additional admins (managed by platform owner)
+    mapping(address => bool) public admins;
+
     // Counters
     uint256 public fieldCounter = 0;
     uint256 public bookingCounter = 0;
@@ -84,6 +87,9 @@ contract FieldBooking {
     uint256[] public bookingDates;                           // List of unique dates with bookings
 
     // ==================== EVENTS ====================
+
+    event AdminAdded(address indexed admin);
+    event AdminRemoved(address indexed admin);
 
     event FieldCreated(
         uint256 indexed fieldId,
@@ -164,6 +170,14 @@ contract FieldBooking {
     }
 
     /**
+     * @dev Platform owner or delegated admin can call
+     */
+    modifier onlyAdmin() {
+        require(isAdmin(msg.sender), "Only admin can call this");
+        _;
+    }
+
+    /**
      * @dev Field must exist
      */
     modifier fieldExists(uint256 _fieldId) {
@@ -190,6 +204,27 @@ contract FieldBooking {
         platformOwner = msg.sender;
     }
 
+    // ==================== ADMIN MANAGEMENT ====================
+
+    function isAdmin(address account) public view returns (bool) {
+        return account == platformOwner || admins[account];
+    }
+
+    function addAdmin(address admin) external onlyOwner {
+        require(admin != address(0), "Invalid admin address");
+        require(admin != platformOwner, "Owner is already admin");
+        require(!admins[admin], "Admin already added");
+        admins[admin] = true;
+        emit AdminAdded(admin);
+    }
+
+    function removeAdmin(address admin) external onlyOwner {
+        require(admin != address(0), "Invalid admin address");
+        require(admins[admin], "Admin not found");
+        admins[admin] = false;
+        emit AdminRemoved(admin);
+    }
+
     // ==================== FIELD MANAGEMENT ====================
 
     /**
@@ -202,7 +237,7 @@ contract FieldBooking {
     function createField(
         string memory _name,
         uint256 _pricePerHour
-    ) external onlyOwner {
+    ) external onlyAdmin {
         require(bytes(_name).length > 0, "Field name cannot be empty");
         require(_pricePerHour > 0, "Price must be greater than 0");
 
@@ -213,11 +248,11 @@ contract FieldBooking {
             name: _name,
             pricePerHour: _pricePerHour,
             isActive: true,
-            owner: msg.sender,
+            owner: platformOwner,
             createdAt: block.timestamp
         });
 
-        emit FieldCreated(fieldCounter, _name, _pricePerHour, msg.sender);
+        emit FieldCreated(fieldCounter, _name, _pricePerHour, platformOwner);
     }
 
     /**
@@ -228,7 +263,7 @@ contract FieldBooking {
     function updateFieldPrice(
         uint256 _fieldId,
         uint256 _newPrice
-    ) external onlyOwner fieldExists(_fieldId) {
+    ) external onlyAdmin fieldExists(_fieldId) {
         require(_newPrice > 0, "Price must be greater than 0");
         
         fields[_fieldId].pricePerHour = _newPrice;
@@ -242,7 +277,7 @@ contract FieldBooking {
      */
     function toggleFieldStatus(
         uint256 _fieldId
-    ) external onlyOwner fieldExists(_fieldId) {
+    ) external onlyAdmin fieldExists(_fieldId) {
         fields[_fieldId].isActive = !fields[_fieldId].isActive;
         
         emit FieldStatusChanged(_fieldId, fields[_fieldId].isActive);
@@ -335,7 +370,7 @@ contract FieldBooking {
      */
     function confirmBooking(
         uint256 _bookingId
-    ) external onlyOwner bookingExists(_bookingId) {
+    ) external onlyAdmin bookingExists(_bookingId) {
         require(
             bookings[_bookingId].status == BookingStatus.Pending,
             "Only pending bookings can be confirmed"
@@ -390,7 +425,7 @@ contract FieldBooking {
 
         // Only user or owner can cancel
         require(
-            msg.sender == booking.user || msg.sender == platformOwner,
+            msg.sender == booking.user || isAdmin(msg.sender),
             "Not authorized to cancel this booking"
         );
 
@@ -531,7 +566,7 @@ contract FieldBooking {
      * @param _date Unix timestamp date (any time within the day)
      * @return Daily revenue in Wei
      */
-    function getDailyRevenue(uint256 _date) external view onlyOwner returns (uint256) {
+    function getDailyRevenue(uint256 _date) external view onlyAdmin returns (uint256) {
         uint256 dayKey = _date / 86400;
         return dailyRevenue[dayKey];
     }
@@ -541,7 +576,7 @@ contract FieldBooking {
      * @param _fieldId Field ID
      * @return Total revenue from all completed bookings for this field
      */
-    function getFieldRevenue(uint256 _fieldId) external view onlyOwner fieldExists(_fieldId) returns (uint256) {
+    function getFieldRevenue(uint256 _fieldId) external view onlyAdmin fieldExists(_fieldId) returns (uint256) {
         return fieldTotalRevenue[_fieldId];
     }
 
@@ -550,7 +585,7 @@ contract FieldBooking {
      * @param _fieldId Field ID
      * @return Number of confirmed bookings
      */
-    function getFieldBookingCount(uint256 _fieldId) external view onlyOwner fieldExists(_fieldId) returns (uint256) {
+    function getFieldBookingCount(uint256 _fieldId) external view onlyAdmin fieldExists(_fieldId) returns (uint256) {
         return fieldBookingCount[_fieldId];
     }
 
@@ -559,7 +594,7 @@ contract FieldBooking {
      * @return fieldId The most booked field ID
      * @return bookingCount Number of bookings
      */
-    function getMostBookedField() external view onlyOwner returns (uint256 fieldId, uint256 bookingCount) {
+    function getMostBookedField() external view onlyAdmin returns (uint256 fieldId, uint256 bookingCount) {
         uint256 maxBookings = 0;
         uint256 mostBookedId = 0;
 
@@ -581,7 +616,7 @@ contract FieldBooking {
      * @return adminBalance Admin's current withdrawable balance
      * @return contractTotalBalance Total ETH in contract
      */
-    function getAdminSummary() external view onlyOwner returns (
+    function getAdminSummary() external view onlyAdmin returns (
         uint256 totalFields,
         uint256 totalBookings,
         uint256 totalRevenue,
@@ -625,7 +660,7 @@ contract FieldBooking {
      * @return totalBookings Total confirmed bookings
      * @return totalRevenue Total revenue from this field
      */
-    function getFieldStats(uint256 _fieldId) external view onlyOwner fieldExists(_fieldId) returns (
+    function getFieldStats(uint256 _fieldId) external view onlyAdmin fieldExists(_fieldId) returns (
         string memory fieldName,
         uint256 pricePerHour,
         bool isActive,

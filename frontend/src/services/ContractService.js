@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { FIELD_BOOKING_ABI } from './abi/index.js';
+import NetworkConfig from './NetworkConfig.js';
 
 // Validate ABI on load
 if (!Array.isArray(FIELD_BOOKING_ABI)) {
@@ -8,6 +9,7 @@ if (!Array.isArray(FIELD_BOOKING_ABI)) {
 }
 
 console.log('[ContractService] ✅ ABI loaded successfully');
+console.log('[ContractService] Using network:', NetworkConfig.getCurrent().name);
 
 class ContractService {
   static async connectWallet() {
@@ -374,6 +376,60 @@ class ContractService {
       return fields;
     } catch (error) {
       console.error('[ContractService] Error fetching owner fields:', error);
+      throw error;
+    }
+  }
+
+  static async switchNetwork(networkName) {
+    try {
+      console.log('[ContractService] Switching to network:', networkName);
+      
+      const targetNetwork = NetworkConfig.getByName(networkName);
+      if (!targetNetwork) {
+        throw new Error('Network ' + networkName + ' not supported');
+      }
+
+      if (!window.ethereum) {
+        throw new Error('MetaMask not found');
+      }
+
+      // Try to switch to the network
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x' + targetNetwork.chainId.toString(16) }],
+        });
+        console.log('[ContractService] Successfully switched to', networkName);
+      } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask
+        if (switchError.code === 4902) {
+          console.log('[ContractService] Adding network to MetaMask...');
+          
+          // Add the network
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0x' + targetNetwork.chainId.toString(16),
+              chainName: targetNetwork.name,
+              rpcUrls: [targetNetwork.rpc],
+              nativeCurrency: {
+                name: 'ETH',
+                symbol: 'ETH',
+                decimals: 18,
+              },
+              blockExplorerUrls: [targetNetwork.explorer],
+            }],
+          });
+          console.log('[ContractService] Network added successfully');
+        } else {
+          throw switchError;
+        }
+      }
+
+      NetworkConfig.setNetwork(targetNetwork.chainId);
+      return true;
+    } catch (error) {
+      console.error('[ContractService] Network switch error:', error);
       throw error;
     }
   }

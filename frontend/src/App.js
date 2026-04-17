@@ -7,6 +7,7 @@ import './App.css';
 import AuthService from './services/AuthService';
 import Login from './components/Login';
 import Navbar from './components/Navbar';
+import NetworkSwitcher from './components/NetworkSwitcher';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 
@@ -95,6 +96,7 @@ function App() {
       <Navbar user={currentUser} onLogout={handleLogout} />
 
       <main className="container">
+        <NetworkSwitcher />
         {currentUser.role === 'admin' ? (
           <AdminDashboard contract={contract} user={currentUser} />
         ) : (

@@ -8,6 +8,7 @@
     "hardhat-node": "hardhat node",
     "deploy": "hardhat run scripts/deploy.js --network hardhat",
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "validate:sepolia": "node scripts/validate-sepolia.js",
     "compile": "hardhat compile",
     "frontend": "cd frontend && npm.cmd start",
     "install-frontend": "cd frontend && npm.cmd install"

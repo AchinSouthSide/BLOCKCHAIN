@@ -1,0 +1,248 @@
+/* Network Switcher Component Styles */
+
+.network-switcher {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 300px;
+}
+
+.network-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.network-icon {
+  font-size: 20px;
+  display: inline-block;
+}
+
+.network-label {
+  font-size: 14px;
+}
+
+.network-name {
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Current Network Color Coding */
+.network-name.local {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.network-name.testnet {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.network-name.mainnet {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.network-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.network-dropdown label {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.network-select {
+  padding: 10px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.network-select:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.network-select:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.network-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Option styling for dropdown */
+.network-select option {
+  background-color: #333;
+  color: white;
+  padding: 8px;
+}
+
+.network-select option:hover {
+  background-color: #667eea;
+}
+
+/* Error Message */
+.network-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  color: #fca5a5;
+  font-size: 13px;
+  animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.error-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.error-message {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Loading State */
+.network-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Network Details / Status */
+.network-details {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.9;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.network-details small {
+  display: block;
+  line-height: 1.4;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .network-switcher {
+    min-width: auto;
+    padding: 12px 16px;
+    margin: 12px 0;
+  }
+
+  .network-info {
+    margin-bottom: 12px;
+  }
+
+  .network-dropdown {
+    margin-bottom: 12px;
+  }
+
+  .network-select {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .network-error,
+  .network-loading {
+    padding: 10px;
+    font-size: 12px;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .network-select option {
+    background-color: #1a1a1a;
+  }
+}
+
+/* Color Variants for Different Network States */
+.network-select.local {
+  border-color: rgba(74, 222, 128, 0.4);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%);
+}
+
+.network-select.testnet {
+  border-color: rgba(251, 191, 36, 0.4);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
+}
+
+.network-select.mainnet {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
+}
+
+/* Focus and Accessibility */
+.network-select:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* Smooth Transitions */
+.network-switcher * {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

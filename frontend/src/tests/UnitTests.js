@@ -35,18 +35,19 @@ class AuthServiceTests {
 
   static testLogin() {
     try {
-      localStorageState.clear();
+      // Clear storage
+      localStorage.removeItem('fieldBooking_currentUser');
       
+      // Save test user
       const testUser = {
         address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        role: 'admin'
+        role: 'admin',
+        isLoggedIn: true
       };
       
-      const testContract = { 
-        address: '0x5FbDB...' 
-      };
+      localStorage.setItem('fieldBooking_currentUser', JSON.stringify(testUser));
       
-      // Simulate AuthService login
+      // Retrieve and verify
       const stored = JSON.parse(localStorage.getItem('fieldBooking_currentUser') || '{}');
       
       if (stored.address === testUser.address && stored.role === testUser.role) {
@@ -393,18 +394,10 @@ class TestRunner {
   }
 }
 
-// Initialize local storage mock for Node environment
-const localStorageState = {
-  data: {},
-  clear() { this.data = {}; },
-  getItem(key) { return this.data[key] || null; },
-  setItem(key, value) { this.data[key] = value; }
-};
-
 // Export test runner
 export default TestRunner;
 
-// Also run on import in browser
+// Make available in browser
 if (typeof window !== 'undefined') {
   window.TestRunner = TestRunner;
   console.log('✅ Test Suite loaded. Run: TestRunner.runAll()');

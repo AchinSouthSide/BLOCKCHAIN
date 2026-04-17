@@ -6,7 +6,11 @@
 import CONTRACT_ARTIFACT from './FieldBooking.json';
 
 // Validar structure
-if (!CONTRACT_ARTIFACT || !CONTRACT_ARTIFACT.abi) {
+if (!CONTRACT_ARTIFACT) {
+  throw new Error('❌ ABI artifact not loaded');
+}
+
+if (!CONTRACT_ARTIFACT.abi) {
   throw new Error('❌ ABI artifact structure invalid. Expected CONTRACT_ARTIFACT.abi array');
 }
 
@@ -17,8 +21,10 @@ if (!Array.isArray(CONTRACT_ARTIFACT.abi)) {
 // Export apenas o ABI array
 export const FIELD_BOOKING_ABI = CONTRACT_ARTIFACT.abi;
 
-console.log('✅ ABI loaded successfully. Methods count:', 
-  CONTRACT_ARTIFACT.abi.filter(item => item.type === 'function').length
-);
+// Log para debug
+if (typeof window !== 'undefined') {
+  const methodCount = CONTRACT_ARTIFACT.abi.filter(item => item.type === 'function').length;
+  console.log('✅ ABI loaded successfully. Methods count:', methodCount);
+}
 
 export default FIELD_BOOKING_ABI;

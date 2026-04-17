@@ -1,6 +1,14 @@
 import { ethers } from 'ethers';
 import { FIELD_BOOKING_ABI } from './abi/index.js';
 
+// Validate ABI on load
+if (!Array.isArray(FIELD_BOOKING_ABI)) {
+  console.error('[ContractService] ❌ ABI is not an array!', typeof FIELD_BOOKING_ABI);
+  throw new Error('ABI loading failed. FIELD_BOOKING_ABI is not an array.');
+}
+
+console.log('[ContractService] ✅ ABI loaded successfully');
+
 class ContractService {
   static async connectWallet() {
     console.log('[ContractService] connectWallet() called');

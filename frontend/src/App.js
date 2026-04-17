@@ -23,14 +23,17 @@ function App() {
     
     if (user && user.isLoggedIn) {
       console.log('[App] Found existing user:', user.address, 'role:', user.role);
-      const sessionData = AuthService.getSessionData();
       
-      if (sessionData && sessionData.contract) {
+      // Get contract from memory
+      const contract = AuthService.getContract();
+      
+      if (contract) {
         setCurrentUser(user);
-        setContract(sessionData.contract);
+        setContract(contract);
         setIsLoggedIn(true);
+        console.log('[App] Contract restored from memory');
       } else {
-        console.log('[App] Session data not found, clearing auth');
+        console.log('[App] Contract not found in memory, clearing auth');
         AuthService.logout();
       }
     }
@@ -43,10 +46,11 @@ function App() {
     setCurrentUser(user);
     setIsLoggedIn(true);
     
-    const sessionData = AuthService.getSessionData();
-    if (sessionData && sessionData.contract) {
-      setContract(sessionData.contract);
-      console.log('[App] Contract loaded from session');
+    // Get contract from memory (AuthService stores it in memory)
+    const contract = AuthService.getContract();
+    if (contract) {
+      setContract(contract);
+      console.log('[App] Contract loaded from AuthService');
     }
   };
 

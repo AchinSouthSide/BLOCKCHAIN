@@ -6,12 +6,13 @@
 class AuthService {
   static STORAGE_KEY = 'fieldBooking_currentUser';
   static SESSION_KEY = 'fieldBooking_session';
+  static contractInstance = null;
 
   /**
    * Đăng nhập user
    * @param {string} address - Wallet address từ MetaMask
    * @param {string} role - 'admin' hoặc 'user'
-   * @param {Object} contractData - { contract, provider, signer }
+   * @param {Object} contractData - { contract, provider, signer, address: contractAddress }
    */
   static login(address, role = 'user', contractData = {}) {
     console.log('[AuthService] Login:', { address, role });
@@ -24,9 +25,19 @@ class AuthService {
       isLoggedIn: true,
     };
 
+    // Lưu contract instance in memory (không serialize)
+    this.contractInstance = contractData.contract;
+
+    // Lưu non-serializable data
+    const sessionData = {
+      contractAddress: contractData.address || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      network: contractData.network,
+      userAddress: address
+    };
+
     // Lưu vào localStorage
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
-    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(contractData));
+    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
 
     console.log('[AuthService] User logged in successfully');
     return user;
@@ -39,6 +50,7 @@ class AuthService {
     console.log('[AuthService] Logout');
     localStorage.removeItem(this.STORAGE_KEY);
     sessionStorage.removeItem(this.SESSION_KEY);
+    this.contractInstance = null;
     console.log('[AuthService] User logged out');
   }
 
@@ -61,11 +73,28 @@ class AuthService {
   static getSessionData() {
     try {
       const dataStr = sessionStorage.getItem(this.SESSION_KEY);
-      return dataStr ? JSON.parse(dataStr) : null;
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      
+      if (data) {
+        // Return contract instance from memory
+        data.contract = this.contractInstance;
+      }
+      
+      return data;
     } catch (error) {
       console.error('[AuthService] Error getting session data:', error);
       return null;
     }
+  }
+
+  /**
+   * Lấy contract instance
+   */
+  static getContract() {
+    if (!this.contractInstance) {
+      console.warn('[AuthService] Contract instance not found');
+    }
+    return this.contractInstance;
   }
 
   /**

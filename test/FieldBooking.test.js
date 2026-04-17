@@ -243,8 +243,8 @@ describe("FieldBooking Smart Contract", function () {
           PRICE_PER_HOUR
         );
 
-      startTime = Math.floor(Date.now() / 1000) + 10; // 10 seconds from now
-      endTime = startTime + 2 * 3600;
+      startTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      endTime = startTime + 2 * 3600; // 2 hours booking
 
       await fieldBooking
         .connect(user1)
@@ -252,12 +252,13 @@ describe("FieldBooking Smart Contract", function () {
 
       // Confirm booking
       await fieldBooking.connect(fieldOwner).confirmBooking(1);
+
+      // Advance time to start time
+      await ethers.provider.send("evm_setNextBlockTimestamp", [startTime]);
+      await ethers.provider.send("evm_mine");
     });
 
     it("Should check-in successfully", async function () {
-      // Wait for start time
-      await new Promise((resolve) => setTimeout(resolve, 11000));
-
       await fieldBooking.connect(user1).checkIn(1);
 
       const booking = await fieldBooking.getBooking(1);
@@ -265,8 +266,6 @@ describe("FieldBooking Smart Contract", function () {
     });
 
     it("Should emit CheckinCompleted event", async function () {
-      await new Promise((resolve) => setTimeout(resolve, 11000));
-
       await expect(fieldBooking.connect(user1).checkIn(1))
         .to.emit(fieldBooking, "CheckinCompleted")
         .withArgs(1);
@@ -323,7 +322,7 @@ describe("FieldBooking Smart Contract", function () {
         );
 
       // 2. Create booking
-      const startTime = Math.floor(Date.now() / 1000) + 10; // 10 seconds from now
+      const startTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
       const endTime = startTime + 2 * 3600;
 
       await fieldBooking
@@ -338,8 +337,9 @@ describe("FieldBooking Smart Contract", function () {
       booking = await fieldBooking.getBooking(1);
       expect(booking.status).to.equal(1); // Confirmed
 
-      // 4. Wait for check-in time
-      await new Promise((resolve) => setTimeout(resolve, 11000));
+      // 4. Advance to check-in time
+      await ethers.provider.send("evm_setNextBlockTimestamp", [startTime]);
+      await ethers.provider.send("evm_mine");
 
       // 5. Check-in
       await fieldBooking.connect(user1).checkIn(1);
@@ -347,7 +347,8 @@ describe("FieldBooking Smart Contract", function () {
       expect(booking.status).to.equal(2); // Checked-in
 
       // 6. Complete booking (wait for end time)
-      await new Promise((resolve) => setTimeout(resolve, 7200000)); // Wait 2 hours
+      await ethers.provider.send("evm_setNextBlockTimestamp", [endTime]);
+      await ethers.provider.send("evm_mine");
       // For testing, we'll just move forward in time using hardhat
       await ethers.provider.send("evm_increaseTime", [7200]); // 2 hours
       await ethers.provider.send("evm_mine"); // Mine a new block

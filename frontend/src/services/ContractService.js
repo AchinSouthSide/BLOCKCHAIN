@@ -41,7 +41,7 @@ class ContractService {
 
       const contract = new ethers.Contract(
         contractAddress,
-        CONTRACT_ABI,
+        CONTRACT_ABI.abi,
         signer
       );
       

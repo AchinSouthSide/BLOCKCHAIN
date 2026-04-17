@@ -1,176 +1,163 @@
+/**
+ * Main App Component với Authentication
+ */
+
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import AuthService from './services/AuthService';
 import ContractService from './services/ContractService';
+import Login from './components/Login';
+import Navbar from './components/Navbar';
 import FieldList from './components/FieldList';
 import CreateField from './components/CreateField';
 import BookingList from './components/BookingList';
 import BookingManagement from './components/BookingManagement';
 import OwnerDashboard from './components/OwnerDashboard';
 import Balance from './components/Balance';
-import WalletConnect from './components/WalletConnect';
 
 function App() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [userAddress, setUserAddress] = useState('');
-  const [activeTab, setActiveTab] = useState('browse');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [contract, setContract] = useState(null);
-  const [isPlatformOwner, setIsPlatformOwner] = useState(false);
+  const [activeTab, setActiveTab] = useState('browse');
+  const [loading, setLoading] = useState(true);
 
+  // Initialize auth state on mount
   useEffect(() => {
-    checkWalletConnection();
+    console.log('[App] Initializing...');
+    const user = AuthService.getCurrentUser();
+    
+    if (user && user.isLoggedIn) {
+      console.log('[App] Found existing user');
+      const sessionData = AuthService.getSessionData();
+      
+      if (sessionData && sessionData.contract) {
+        setCurrentUser(user);
+        setContract(sessionData.contract);
+        setIsLoggedIn(true);
+      }
+    }
+    
+    setLoading(false);
   }, []);
 
-  const checkWalletConnection = async () => {
-    try {
-      const result = await ContractService.connectWallet();
-      if (result.isConnected) {
-        setIsConnected(true);
-        setUserAddress(result.address);
-        setContract(result.contract);
-        
-        // Check if user is platform owner
-        const platformOwner = await result.contract.platformOwner();
-        setIsPlatformOwner(platformOwner.toLowerCase() === result.address.toLowerCase());
-      }
-    } catch (error) {
-      console.log('Wallet not connected yet');
+  const handleLoginSuccess = (user) => {
+    console.log('[App] Login successful');
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    
+    const sessionData = AuthService.getSessionData();
+    if (sessionData && sessionData.contract) {
+      setContract(sessionData.contract);
     }
   };
 
-  const handleAccountsChanged = async () => {
-    checkWalletConnection();
+  const handleLogout = () => {
+    console.log('[App] Logging out');
+    AuthService.logout();
+    setCurrentUser(null);
+    setContract(null);
+    setIsLoggedIn(false);
+    setActiveTab('browse');
   };
 
-  const handleNetworkChanged = async () => {
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (chainId !== '0xaa36a7' && chainId !== '0x7a69') {
-      alert('Vui lòng chuyển đến Sepolia testnet hoặc localhost');
-    }
-  };
-
-  if (window.ethereum) {
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleNetworkChanged);
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p>⏳ Đang tải...</p>
+      </div>
+    );
   }
 
+  // Chưa đăng nhập - Show Login Screen
+  if (!isLoggedIn || !currentUser) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Đã đăng nhập - Show Dashboard
   return (
     <div className="App">
-      {/* ===== NAVBAR ===== */}
-      <nav className="navbar">
-        <div className="navbar-brand">
-          <h1>🏟️ FieldBooking</h1>
-          <p>Đặt sân thể thao trên blockchain</p>
+      <Navbar user={currentUser} onLogout={handleLogout} />
+
+      <main className="container">
+        {/* Tab Navigation */}
+        <div className="tab-buttons">
+          <button 
+            className={`tab-btn ${activeTab === 'browse' ? 'active' : ''}`}
+            onClick={() => setActiveTab('browse')}
+          >
+            🔍 Tìm sân
+          </button>
+
+          <button 
+            className={`tab-btn ${activeTab === 'my-bookings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('my-bookings')}
+          >
+            📅 Đặt sân của tôi
+          </button>
+
+          <button 
+            className={`tab-btn ${activeTab === 'booking-management' ? 'active' : ''}`}
+            onClick={() => setActiveTab('booking-management')}
+          >
+            📋 Quản lý booking
+          </button>
+
+          {/* Show admin tabs if user is admin */}
+          {currentUser.role === 'admin' && (
+            <>
+              <div className="tab-separator"></div>
+              
+              <button 
+                className={`tab-btn ${activeTab === 'owner-dashboard' ? 'active' : ''}`}
+                onClick={() => setActiveTab('owner-dashboard')}
+              >
+                👨‍💼 Dashboard
+              </button>
+
+              <button 
+                className={`tab-btn ${activeTab === 'create-field' ? 'active' : ''}`}
+                onClick={() => setActiveTab('create-field')}
+              >
+                ➕ Tạo sân
+              </button>
+
+              <button 
+                className={`tab-btn ${activeTab === 'balance' ? 'active' : ''}`}
+                onClick={() => setActiveTab('balance')}
+              >
+                💰 Doanh thu
+              </button>
+            </>
+          )}
         </div>
-        <WalletConnect 
-          isConnected={isConnected} 
-          userAddress={userAddress}
-          onConnect={checkWalletConnection}
-        />
-      </nav>
 
-      {isConnected ? (
-        <main className="container">
-          {/* ===== TAB BUTTONS ===== */}
-          <div className="tab-buttons">
-            {/* Common tabs */}
-            <button 
-              className={`tab-btn ${activeTab === 'browse' ? 'active' : ''}`}
-              onClick={() => setActiveTab('browse')}
-              title="Duyệt và đặt sân"
-            >
-              🔍 Tìm sân
-            </button>
-
-            <button 
-              className={`tab-btn ${activeTab === 'my-bookings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('my-bookings')}
-              title="Xem các đặt sân của bạn"
-            >
-              📅 Đặt sân của tôi
-            </button>
-
-            <button 
-              className={`tab-btn ${activeTab === 'booking-management' ? 'active' : ''}`}
-              onClick={() => setActiveTab('booking-management')}
-              title="Quản lý đặt sân"
-            >
-              📋 Quản lý booking
-            </button>
-
-            {/* Separator */}
-            <div className="tab-separator"></div>
-
-            {/* Owner tabs */}
-            <button 
-              className={`tab-btn ${activeTab === 'owner-dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveTab('owner-dashboard')}
-              title="Dashboard chủ sân"
-            >
-              👨‍💼 Dashboard
-            </button>
-
-            <button 
-              className={`tab-btn ${activeTab === 'create-field' ? 'active' : ''}`}
-              onClick={() => setActiveTab('create-field')}
-              title="Tạo sân mới"
-            >
-              ➕ Tạo sân
-            </button>
-
-            <button 
-              className={`tab-btn ${activeTab === 'balance' ? 'active' : ''}`}
-              onClick={() => setActiveTab('balance')}
-              title="Xem doanh thu và rút tiền"
-            >
-              💰 Doanh thu
-            </button>
-          </div>
-
-          {/* ===== TAB CONTENT ===== */}
-          <div className="tab-content">
-            {/* BROWSE FIELDS */}
-            {activeTab === 'browse' && contract && (
-              <FieldList contract={contract} />
-            )}
-
-            {/* MY BOOKINGS */}
-            {activeTab === 'my-bookings' && contract && (
-              <BookingList contract={contract} userAddress={userAddress} />
-            )}
-
-            {/* BOOKING MANAGEMENT */}
-            {activeTab === 'booking-management' && contract && (
-              <BookingManagement contract={contract} userAddress={userAddress} />
-            )}
-
-            {/* OWNER DASHBOARD */}
-            {activeTab === 'owner-dashboard' && contract && (
-              <OwnerDashboard contract={contract} userAddress={userAddress} />
-            )}
-
-            {/* CREATE FIELD */}
-            {activeTab === 'create-field' && contract && (
-              <CreateField contract={contract} />
-            )}
-
-            {/* BALANCE / EARNINGS */}
-            {activeTab === 'balance' && contract && (
-              <Balance 
-                contract={contract} 
-                userAddress={userAddress}
-                isPlatformOwner={isPlatformOwner}
-              />
-            )}
-          </div>
-        </main>
-      ) : (
-        <main className="container">
-          <div className="connect-wallet-message">
-            <h2>⚠️ Chưa kết nối ví</h2>
-            <p>Vui lòng kết nối MetaMask để sử dụng ứng dụng</p>
-          </div>
-        </main>
-      )}
+        {/* Tab Content */}
+        <div className="tab-content">
+          {activeTab === 'browse' && contract && <FieldList contract={contract} />}
+          
+          {activeTab === 'my-bookings' && contract && (
+            <BookingList contract={contract} userAddress={currentUser.address} />
+          )}
+          
+          {activeTab === 'booking-management' && contract && (
+            <BookingManagement contract={contract} userAddress={currentUser.address} />
+          )}
+          
+          {currentUser.role === 'admin' && activeTab === 'owner-dashboard' && contract && (
+            <OwnerDashboard contract={contract} userAddress={currentUser.address} />
+          )}
+          
+          {currentUser.role === 'admin' && activeTab === 'create-field' && contract && (
+            <CreateField contract={contract} />
+          )}
+          
+          {currentUser.role === 'admin' && activeTab === 'balance' && contract && (
+            <Balance contract={contract} userAddress={currentUser.address} isPlatformOwner={false} />
+          )}
+        </div>
+      </main>
     </div>
   );
 }

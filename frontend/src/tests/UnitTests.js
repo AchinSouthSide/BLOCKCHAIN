@@ -237,16 +237,43 @@ class ABIValidationTests {
   static testRequiredFunctions() {
     try {
       const requiredMethods = [
+        // Field
         'createField',
+        'updateFieldPrice',
+        'toggleFieldStatus',
+        'getFields',
         'getField',
-        'createBooking',
+
+        // Booking
+        'bookField',
         'confirmBooking',
-        'completeBooking'
+        'cancelBooking',
+        'getUserBookings',
+        'getFieldBookings',
+        'hasTimeConflict',
+
+        // Admin/balance
+        'getAdminSummary',
+        'getBalance',
+        'withdrawBalance',
       ];
-      
-      // Note: In real test, would validate against actual ABI
-      // For now, validate structure is correct
-      
+
+      const abi = window.FIELD_BOOKING_ABI;
+      if (!abi || !Array.isArray(abi)) {
+        throw new Error('FIELD_BOOKING_ABI is missing or invalid');
+      }
+
+      const abiNames = new Set(
+        abi
+          .filter((x) => x && x.type === 'function' && typeof x.name === 'string')
+          .map((x) => x.name)
+      );
+
+      const missing = requiredMethods.filter((m) => !abiNames.has(m));
+      if (missing.length > 0) {
+        throw new Error('Missing ABI functions: ' + missing.join(', '));
+      }
+
       console.log('✅ Test 2: Required functions - PASSED');
       return { passed: true, test: 'Required functions' };
     } catch (error) {

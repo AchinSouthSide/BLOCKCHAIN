@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ContractService from '../services/ContractService';
 import '../styles/BookingList.css';
 
@@ -6,30 +6,27 @@ function BookingList({ contract, userAddress }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [contract, userAddress]);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
       const bookingsData = await ContractService.getUserBookings(contract, userAddress);
       setBookings(bookingsData);
     } catch (error) {
-      alert('Error fetching bookings: ' + error.message);
+      alert('Lỗi tải danh sách đặt sân: ' + error.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [contract, userAddress]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   const getStatusBadge = (status) => {
     const statusMap = {
       0: { text: 'Chờ xác nhận', color: '#ffc107' },
       1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã check-in', color: '#28a745' },
-      3: { text: 'Hoàn thành', color: '#6c757d' },
-      4: { text: 'Đã huỷ', color: '#dc3545' },
-      5: { text: 'Đã hoàn tiền', color: '#e83e8c' }
+      2: { text: 'Đã huỷ', color: '#dc3545' }
     };
     const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
     return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
@@ -42,18 +39,8 @@ function BookingList({ contract, userAddress }) {
         alert('Đã hủy đặt sân! ✅');
         fetchBookings();
       } catch (error) {
-        alert('Error cancelling booking: ' + error.message);
+        alert('Lỗi hủy đặt sân: ' + error.message);
       }
-    }
-  };
-
-  const handleCheckIn = async (bookingId) => {
-    try {
-      await ContractService.checkIn(contract, bookingId);
-      alert('Check-in thành công! ✅');
-      fetchBookings();
-    } catch (error) {
-      alert('Error checking in: ' + error.message);
     }
   };
 
@@ -76,7 +63,7 @@ function BookingList({ contract, userAddress }) {
               
               <div className="booking-details">
                 <p><strong>🏟️ Sân ID:</strong> #{booking.fieldId}</p>
-                <p><strong>💰 Giá:</strong> {booking.totalPrice} ETH</p>
+                <p><strong>💰 Số tiền đã thanh toán:</strong> {booking.amountPaid} ETH</p>
                 <p><strong>📅 Thời gian:</strong> {new Date(booking.startTime * 1000).toLocaleString('vi-VN')} - {new Date(booking.endTime * 1000).toLocaleString('vi-VN')}</p>
               </div>
 
@@ -84,11 +71,6 @@ function BookingList({ contract, userAddress }) {
                 {booking.status === 0 && (
                   <button className="cancel-btn" onClick={() => handleCancel(booking.id)}>
                     ❌ Hủy
-                  </button>
-                )}
-                {booking.status === 1 && new Date(booking.startTime * 1000) <= new Date() && (
-                  <button className="checkin-btn" onClick={() => handleCheckIn(booking.id)}>
-                    ✓ Check-in
                   </button>
                 )}
               </div>

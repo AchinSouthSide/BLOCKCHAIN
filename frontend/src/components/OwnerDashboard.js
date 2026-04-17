@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
 import '../styles/OwnerDashboard.css';
 
@@ -8,9 +9,6 @@ function OwnerDashboard({ contract, userAddress }) {
   const [fieldBookings, setFieldBookings] = useState([]);
   const [editingField, setEditingField] = useState(null);
   const [editFormData, setEditFormData] = useState({
-    name: '',
-    location: '',
-    description: '',
     pricePerHour: ''
   });
   const [loading, setLoading] = useState(true);
@@ -27,13 +25,14 @@ function OwnerDashboard({ contract, userAddress }) {
       setLoading(true);
       console.log('[OwnerDashboard] Loading owner data...');
       
-      const fieldsData = await ContractService.getOwnerFields(contract, userAddress);
+      const fieldsData = await ContractService.getFieldsWithStats(contract);
       console.log('[OwnerDashboard] Fields loaded:', fieldsData.length);
       setFields(fieldsData);
       
-      const earningsData = await ContractService.getOwnerEarnings(contract, userAddress);
-      console.log('[OwnerDashboard] Earnings loaded:', earningsData);
-      setEarnings(earningsData);
+      // Withdrawable balance for platform owner
+      const balanceEth = await ContractService.getBalance(contract, userAddress);
+      console.log('[OwnerDashboard] Balance loaded:', balanceEth);
+      setEarnings(balanceEth);
     } catch (error) {
       console.error('[OwnerDashboard] Error loading data:', error);
       // Don't alert on initial load - fields might be empty
@@ -46,44 +45,38 @@ function OwnerDashboard({ contract, userAddress }) {
 
   const handleSelectField = async (field) => {
     try {
+      console.log('[OwnerDashboard] Loading bookings for field:', field.id);
       setSelectedField(field);
       const bookings = await ContractService.getFieldBookings(contract, field.id);
+      console.log('[OwnerDashboard] Bookings loaded:', bookings.length);
       setFieldBookings(bookings);
     } catch (error) {
-      alert('Error loading field bookings: ' + error.message);
+      console.error('[OwnerDashboard] Error loading field bookings:', error);
+      alert('Lỗi khi tải đặt sân: ' + error.message);
     }
   };
 
   const handleEditField = (field) => {
     setEditingField(field.id);
     setEditFormData({
-      name: field.name,
-      location: field.location,
-      description: field.description,
       pricePerHour: field.pricePerHour
     });
   };
 
   const handleUpdateField = async () => {
-    if (!editFormData.name || !editFormData.location || !editFormData.description || !editFormData.pricePerHour) {
+    if (!editFormData.pricePerHour) {
       alert('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
     try {
-      await ContractService.updateField(
-        contract,
-        editingField,
-        editFormData.name,
-        editFormData.location,
-        editFormData.description,
-        editFormData.pricePerHour
-      );
-      alert('Cập nhật sân thành công! ✅');
+      const newPriceWei = ethers.parseEther(String(editFormData.pricePerHour));
+      await ContractService.updateFieldPrice(contract, editingField, newPriceWei);
+      alert('Cập nhật giá sân thành công! ✅');
       setEditingField(null);
       loadOwnerData();
     } catch (error) {
-      alert('Error updating field: ' + error.message);
+      alert('Lỗi cập nhật giá sân: ' + error.message);
     }
   };
 
@@ -93,7 +86,7 @@ function OwnerDashboard({ contract, userAddress }) {
       alert('Cập nhật trạng thái sân thành công! ✅');
       loadOwnerData();
     } catch (error) {
-      alert('Error toggling field status: ' + error.message);
+      alert('Lỗi cập nhật trạng thái sân: ' + error.message);
     }
   };
 
@@ -110,21 +103,7 @@ function OwnerDashboard({ contract, userAddress }) {
         const bookings = await ContractService.getFieldBookings(contract, selectedField.id);
         setFieldBookings(bookings);
       } catch (error) {
-        alert('Error confirming booking: ' + error.message);
-      }
-    }
-  };
-
-  const handleCompleteBooking = async (bookingId) => {
-    if (window.confirm('Hoàn thành đặt sân này?')) {
-      try {
-        await ContractService.completeBooking(contract, bookingId);
-        alert('Đã hoàn thành đặt sân! ✅');
-        loadOwnerData();
-        const bookings = await ContractService.getFieldBookings(contract, selectedField.id);
-        setFieldBookings(bookings);
-      } catch (error) {
-        alert('Error completing booking: ' + error.message);
+        alert('Lỗi xác nhận đặt sân: ' + error.message);
       }
     }
   };
@@ -133,10 +112,7 @@ function OwnerDashboard({ contract, userAddress }) {
     const statusMap = {
       0: { text: 'Chờ xác nhận', color: '#ffc107' },
       1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã check-in', color: '#28a745' },
-      3: { text: 'Hoàn thành', color: '#6c757d' },
-      4: { text: 'Đã huỷ', color: '#dc3545' },
-      5: { text: 'Đã hoàn tiền', color: '#e83e8c' }
+      2: { text: 'Đã huỷ', color: '#dc3545' }
     };
     const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
     return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
@@ -149,14 +125,14 @@ function OwnerDashboard({ contract, userAddress }) {
       {/* ===== OWNER EARNINGS ===== */}
       <div className="earnings-card">
         <div className="earnings-info">
-          <h3>💰 Doanh thu của bạn</h3>
+          <h3>💰 Số dư có thể rút</h3>
           <p className="earnings-amount">{earnings} ETH</p>
         </div>
         <button 
           className="withdraw-btn"
           onClick={() => {
             if (window.confirm(`Rút ${earnings} ETH?`)) {
-              ContractService.withdraw(contract)
+              ContractService.withdrawBalance(contract)
                 .then(() => {
                   alert('Rút tiền thành công! ✅');
                   loadOwnerData();
@@ -184,27 +160,6 @@ function OwnerDashboard({ contract, userAddress }) {
                   // EDIT MODE
                   <div className="edit-form">
                     <input
-                      type="text"
-                      name="name"
-                      value={editFormData.name}
-                      onChange={handleEditFormChange}
-                      placeholder="Tên sân"
-                    />
-                    <input
-                      type="text"
-                      name="location"
-                      value={editFormData.location}
-                      onChange={handleEditFormChange}
-                      placeholder="Địa điểm"
-                    />
-                    <textarea
-                      name="description"
-                      value={editFormData.description}
-                      onChange={handleEditFormChange}
-                      placeholder="Mô tả"
-                      rows="3"
-                    />
-                    <input
                       type="number"
                       name="pricePerHour"
                       value={editFormData.pricePerHour}
@@ -222,12 +177,23 @@ function OwnerDashboard({ contract, userAddress }) {
                   <div className="field-view">
                     <div className="field-info">
                       <h3>🏟️ {field.name}</h3>
-                      <p className="location">📍 {field.location}</p>
-                      <p className="description">{field.description}</p>
                       <p className="price">💵 {field.pricePerHour} ETH/giờ</p>
-                      <span className={`status-label ${field.isActive ? 'active' : 'inactive'}`}>
-                        {field.isActive ? '✅ Hoạt động' : '🚫 Tắt'}
-                      </span>
+                      
+                      <div className="field-stats">
+                        <div className="stat-item">
+                          <span className="stat-label">📅 Số lần đặt</span>
+                          <span className="stat-value">{field.bookingCount || 0}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">💰 Doanh thu</span>
+                          <span className="stat-value">{field.revenue || '0'} ETH</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className={`stat-status ${field.isActive ? 'active' : 'inactive'}`}>
+                            {field.isActive ? '✅ Hoạt động' : '🚫 Tắt'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="field-actions">
                       <button 
@@ -277,7 +243,7 @@ function OwnerDashboard({ contract, userAddress }) {
                   <div className="booking-info">
                     <h4>Đặt sân #{booking.id}</h4>
                     <p>👤 {booking.user.substring(0, 6)}...{booking.user.substring(38)}</p>
-                    <p>💰 {booking.totalPrice} ETH</p>
+                    <p>💰 {booking.amountPaid} ETH</p>
                     <p>📅 {new Date(booking.startTime * 1000).toLocaleString('vi-VN')} - {new Date(booking.endTime * 1000).toLocaleString('vi-VN')}</p>
                     <p>{getStatusBadge(booking.status)}</p>
                   </div>
@@ -288,14 +254,6 @@ function OwnerDashboard({ contract, userAddress }) {
                         onClick={() => handleConfirmBooking(booking.id)}
                       >
                         ✓ Xác nhận
-                      </button>
-                    )}
-                    {booking.status === 2 && new Date(booking.endTime * 1000) <= new Date() && (
-                      <button 
-                        className="complete-btn"
-                        onClick={() => handleCompleteBooking(booking.id)}
-                      >
-                        ✅ Hoàn thành
                       </button>
                     )}
                   </div>

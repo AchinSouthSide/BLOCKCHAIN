@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* global BigInt */
+import React, { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
 import '../styles/FieldList.css';
 
@@ -6,75 +8,121 @@ function FieldList({ contract }) {
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedField, setSelectedField] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookingData, setBookingData] = useState({
-    startTime: '',
     startHour: '09',
-    endTime: '',
     endHour: '11'
   });
 
-  useEffect(() => {
-    fetchFields();
-  }, [contract]);
-
-  const fetchFields = async () => {
+  const fetchFields = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('[FieldList] Fetching fields...');
+      console.log('[FieldList] Fetching fields for date:', selectedDate);
       const fieldsData = await ContractService.getAllFields(contract);
       console.log('[FieldList] Fields loaded:', fieldsData.length);
       setFields(fieldsData);
     } catch (error) {
       console.error('[FieldList] Error fetching fields:', error);
-      // Set empty list instead of alert
       setFields([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [contract, selectedDate]);
+
+  useEffect(() => {
+    fetchFields();
+    // Auto-refresh khi ngày thay đổi
+  }, [fetchFields]);
 
   const handleDateChange = (field, value) => {
     setBookingData({ ...bookingData, [field]: value });
   };
 
   const handleBooking = async () => {
-    if (!selectedField || !bookingData.startTime || !bookingData.endTime) {
+    if (!selectedField || !bookingData.startHour || !bookingData.endHour) {
       alert('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
     try {
-      const startDateTime = new Date(`${bookingData.startTime}T${bookingData.startHour}:00:00`);
-      const endDateTime = new Date(`${bookingData.endTime}T${bookingData.endHour}:00:00`);
+      // Sử dụng ngày đã chọn
+      const startDateTime = new Date(`${selectedDate}T${bookingData.startHour}:00:00`);
+      const endDateTime = new Date(`${selectedDate}T${bookingData.endHour}:00:00`);
 
       if (endDateTime <= startDateTime) {
         alert('Giờ kết thúc phải sau giờ bắt đầu');
         return;
       }
 
-      const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60);
-      const totalPrice = durationHours * parseFloat(selectedField.pricePerHour);
+      const startTs = Math.floor(startDateTime.getTime() / 1000);
+      const endTs = Math.floor(endDateTime.getTime() / 1000);
+      const nowTs = Math.floor(Date.now() / 1000);
+      if (startTs < nowTs) {
+        alert('Giờ bắt đầu phải ở tương lai');
+        return;
+      }
 
-      await ContractService.createBooking(
+      // (Optional) pre-check conflict to avoid paying gas for revert
+      const hasConflict = await ContractService.hasTimeConflict(
         contract,
         selectedField.id,
-        Math.floor(startDateTime.getTime() / 1000),
-        Math.floor(endDateTime.getTime() / 1000),
-        totalPrice
+        startTs,
+        endTs
+      );
+      if (hasConflict) {
+        alert('Khung giờ này đã có người đặt. Vui lòng chọn khung giờ khác.');
+        return;
+      }
+
+      // Calculate value to send in Wei: pricePerHourWei * ceil(durationHours)
+      const durationSeconds = endTs - startTs;
+      const durationHoursCeil = Math.ceil(durationSeconds / 3600);
+      const pricePerHourWei = BigInt(selectedField.pricePerHourWei);
+      const valueWei = pricePerHourWei * BigInt(durationHoursCeil);
+
+      await ContractService.bookField(
+        contract,
+        selectedField.id,
+        startTs,
+        endTs,
+        valueWei
       );
 
-      alert('Đặt sân thành công! ✅');
+      const paidEth = ethers.formatEther(valueWei);
+      alert(
+        `Đặt sân thành công ✅\n` +
+        `Bạn đã thanh toán: ${paidEth} ETH (chưa tính phí gas).\n` +
+        `Trạng thái: Chờ admin xác nhận.`
+      );
       setSelectedField(null);
       fetchFields();
     } catch (error) {
-      alert('Error booking field: ' + error.message);
+      alert('Lỗi đặt sân: ' + error.message);
     }
   };
 
   if (loading) return <div className="loading">⏳ Đang tải...</div>;
 
+  // Tính ngày hôm nay
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <div className="field-list-container">
+      {/* ===== DATE PICKER ===== */}
+      <div className="date-picker-section">
+        <label htmlFor="selectedDate">📅 Chọn ngày đặt sân:</label>
+        <input 
+          type="date" 
+          id="selectedDate"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          min={today}
+        />
+        <span className="date-display">
+          📆 {new Date(selectedDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </div>
+
       <div className="fields-grid">
         {fields.length === 0 ? (
           <div className="no-fields">Chưa có sân nào</div>
@@ -85,13 +133,12 @@ function FieldList({ contract }) {
                 <h3>🏟️ {field.name}</h3>
                 <span className="price">{field.pricePerHour} ETH/giờ</span>
               </div>
-              <p className="location">📍 {field.location}</p>
-              <p className="description">{field.description}</p>
               <button 
                 className="book-btn"
                 onClick={() => setSelectedField(field)}
+                disabled={!field.isActive}
               >
-                Đặt sân →
+                {field.isActive ? 'Đặt sân →' : 'Tạm đóng'}
               </button>
             </div>
           ))
@@ -104,29 +151,11 @@ function FieldList({ contract }) {
             <h2>Đặt sân: {selectedField.name}</h2>
             <div className="booking-form">
               <div className="form-group">
-                <label>Ngày bắt đầu</label>
-                <input 
-                  type="date" 
-                  value={bookingData.startTime}
-                  onChange={(e) => handleDateChange('startTime', e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
                 <label>Giờ bắt đầu</label>
                 <input 
                   type="time" 
                   value={bookingData.startHour + ':00'}
                   onChange={(e) => handleDateChange('startHour', e.target.value.split(':')[0])}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Ngày kết thúc</label>
-                <input 
-                  type="date" 
-                  value={bookingData.endTime}
-                  onChange={(e) => handleDateChange('endTime', e.target.value)}
                 />
               </div>
 

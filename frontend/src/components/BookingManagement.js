@@ -1,34 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ContractService from '../services/ContractService';
 import '../styles/BookingManagement.css';
 
 function BookingManagement({ contract, userAddress }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, pending, confirmed, completed
+  const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
 
-  useEffect(() => {
-    if (contract && userAddress) {
-      loadBookings();
-    }
-  }, [contract, userAddress]);
-
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     try {
       setLoading(true);
       const bookingsData = await ContractService.getUserBookings(contract, userAddress);
       setBookings(bookingsData);
     } catch (error) {
-      alert('Error loading bookings: ' + error.message);
+      alert('Lỗi tải đặt sân: ' + error.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [contract, userAddress]);
+
+  useEffect(() => {
+    if (contract && userAddress) {
+      loadBookings();
+    }
+  }, [contract, userAddress, loadBookings]);
 
   const filteredBookings = bookings.filter(booking => {
     if (filter === 'pending') return booking.status === 0;
     if (filter === 'confirmed') return booking.status === 1;
-    if (filter === 'completed') return booking.status === 3;
+    if (filter === 'cancelled') return booking.status === 2;
     return true;
   });
 
@@ -36,47 +36,10 @@ function BookingManagement({ contract, userAddress }) {
     const statusMap = {
       0: { text: 'Chờ xác nhận', color: '#ffc107' },
       1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã check-in', color: '#28a745' },
-      3: { text: 'Hoàn thành', color: '#6c757d' },
-      4: { text: 'Đã huỷ', color: '#dc3545' },
-      5: { text: 'Đã hoàn tiền', color: '#e83e8c' }
+      2: { text: 'Đã huỷ', color: '#dc3545' }
     };
     const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
     return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
-  };
-
-  const handleCheckIn = async (bookingId) => {
-    try {
-      await ContractService.checkIn(contract, bookingId);
-      alert('Check-in thành công! ✅');
-      loadBookings();
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const handleCompleteBooking = async (bookingId) => {
-    if (window.confirm('Hoàn thành đặt sân này?')) {
-      try {
-        await ContractService.completeBooking(contract, bookingId);
-        alert('Đã hoàn thành đặt sân! ✅');
-        loadBookings();
-      } catch (error) {
-        alert('Error: ' + error.message);
-      }
-    }
-  };
-
-  const handleRefundBooking = async (bookingId) => {
-    if (window.confirm('Yêu cầu hoàn tiền?')) {
-      try {
-        await ContractService.refundBooking(contract, bookingId);
-        alert('Đã yêu cầu hoàn tiền! ✅');
-        loadBookings();
-      } catch (error) {
-        alert('Error: ' + error.message);
-      }
-    }
   };
 
   const handleCancelBooking = async (bookingId) => {
@@ -86,7 +49,7 @@ function BookingManagement({ contract, userAddress }) {
         alert('Đã hủy đặt sân! ✅');
         loadBookings();
       } catch (error) {
-        alert('Error: ' + error.message);
+        alert('Lỗi hủy đặt sân: ' + error.message);
       }
     }
   };
@@ -119,10 +82,10 @@ function BookingManagement({ contract, userAddress }) {
             Đã xác nhận ({bookings.filter(b => b.status === 1).length})
           </button>
           <button 
-            className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-            onClick={() => setFilter('completed')}
+            className={`filter-btn ${filter === 'cancelled' ? 'active' : ''}`}
+            onClick={() => setFilter('cancelled')}
           >
-            Hoàn thành ({bookings.filter(b => b.status === 3).length})
+            Đã hủy ({bookings.filter(b => b.status === 2).length})
           </button>
         </div>
       </div>
@@ -130,7 +93,7 @@ function BookingManagement({ contract, userAddress }) {
       {/* ===== BOOKINGS LIST ===== */}
       {filteredBookings.length === 0 ? (
         <div className="no-bookings">
-          {filter === 'all' ? 'Chưa có đặt sân nào' : `Không có đặt sân ${filter}`}
+          {filter === 'all' ? 'Chưa có đặt sân nào' : 'Không có đặt sân phù hợp'}
         </div>
       ) : (
         <div className="bookings-container">
@@ -148,8 +111,8 @@ function BookingManagement({ contract, userAddress }) {
               {/* ===== BOOKING DETAILS ===== */}
               <div className="booking-details">
                 <div className="detail-row">
-                  <span className="label">💰 Giá tiền:</span>
-                  <span className="value">{booking.totalPrice} ETH</span>
+                  <span className="label">💰 Số tiền đã thanh toán:</span>
+                  <span className="value">{booking.amountPaid} ETH</span>
                 </div>
                 <div className="detail-row">
                   <span className="label">📅 Thời gian:</span>
@@ -173,13 +136,6 @@ function BookingManagement({ contract, userAddress }) {
                 {booking.status === 0 && (
                   <>
                     <button 
-                      className="refund-btn"
-                      onClick={() => handleRefundBooking(booking.id)}
-                      title="Hoàn return tiền"
-                    >
-                      💸 Hoàn tiền
-                    </button>
-                    <button 
                       className="cancel-btn"
                       onClick={() => handleCancelBooking(booking.id)}
                       title="Hủy booking"
@@ -189,61 +145,14 @@ function BookingManagement({ contract, userAddress }) {
                   </>
                 )}
 
-                {/* Status: Confirmed (1) */}
-                {booking.status === 1 && new Date(booking.startTime * 1000) <= new Date() && (
-                  <button 
-                    className="checkin-btn"
-                    onClick={() => handleCheckIn(booking.id)}
-                    title="Check-in"
-                  >
-                    ✓ Check-in
-                  </button>
+                {/* Status: Confirmed (1) - No user actions in current contract */}
+                {booking.status === 1 && (
+                  <div className="status-info">✅ Đã xác nhận</div>
                 )}
 
-                {booking.status === 1 && new Date(booking.startTime * 1000) > new Date() && (
-                  <button 
-                    className="refund-btn"
-                    onClick={() => handleRefundBooking(booking.id)}
-                    disabled
-                  >
-                    ⏰ Chờ thời gian check-in
-                  </button>
-                )}
-
-                {/* Status: Checked-in (2) */}
-                {booking.status === 2 && new Date(booking.endTime * 1000) <= new Date() && (
-                  <button 
-                    className="complete-btn"
-                    onClick={() => handleCompleteBooking(booking.id)}
-                    title="Hoàn thành booking"
-                  >
-                    ✅ Hoàn thành
-                  </button>
-                )}
-
-                {booking.status === 2 && new Date(booking.endTime * 1000) > new Date() && (
-                  <button 
-                    className="complete-btn"
-                    disabled
-                    title="Chờ đến thời gian kết thúc"
-                  >
-                    ⏰ Đang sử dụng
-                  </button>
-                )}
-
-                {/* Status: Completed (3) - No actions */}
-                {booking.status === 3 && (
-                  <div className="status-info">✅ Hoàn thành</div>
-                )}
-
-                {/* Status: Cancelled (4) - No actions */}
-                {booking.status === 4 && (
+                {/* Status: Cancelled (2) - No actions */}
+                {booking.status === 2 && (
                   <div className="status-info">❌ Đã hủy</div>
-                )}
-
-                {/* Status: Refunded (5) - No actions */}
-                {booking.status === 5 && (
-                  <div className="status-info">💸 Đã hoàn tiền</div>
                 )}
               </div>
             </div>

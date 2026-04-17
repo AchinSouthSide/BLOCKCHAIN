@@ -1,0 +1,200 @@
+* {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  letter-spacing: 0.3px;
+}
+
+.App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.navbar {
+  background: rgba(255, 255, 255, 0.98);
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  margin-bottom: 30px;
+}
+
+.navbar-brand h1 {
+  color: #667eea;
+  font-size: 32px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.navbar-brand p {
+  color: #888;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 30px;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tab-separator {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  margin: 0 15px;
+  height: 30px;
+  border-radius: 1px;
+}
+
+.tab-btn {
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  background: white;
+}
+
+.tab-btn.active {
+  background: white;
+  color: white;
+  background: #667eea;
+  border-color: #667eea;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.connect-wallet-message {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 80px 50px;
+  border-radius: 16px;
+  color: #333;
+  margin-top: 50px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.connect-wallet-message h2 {
+  color: #667eea;
+  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.connect-wallet-message p {
+  color: #666;
+  font-size: 18px;
+  line-height: 1.6;
+  letter-spacing: 0.4px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 20px;
+  }
+
+  .tab-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px 20px;
+  }
+
+  .navbar-brand h1 {
+    font-size: 26px;
+  }
+
+  .tab-buttons {
+    gap: 8px;
+    margin-bottom: 30px;
+  }
+
+  .tab-separator {
+    margin: 0 10px;
+    height: 24px;
+  }
+
+  .tab-btn {
+    padding: 11px 18px;
+    font-size: 13px;
+    min-width: 70px;
+  }
+
+  .connect-wallet-message {
+    padding: 50px 30px;
+  }
+
+  .connect-wallet-message h2 {
+    font-size: 24px;
+  }
+
+  .connect-wallet-message p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand h1 {
+    font-size: 22px;
+  }
+
+  .tab-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+    min-width: 60px;
+  }
+
+  .tab-separator {
+    margin: 0 6px;
+    height: 20px;
+  }
+
+  .connect-wallet-message {
+    padding: 30px 20px;
+  }
+}

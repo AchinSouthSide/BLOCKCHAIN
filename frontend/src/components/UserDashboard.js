@@ -11,7 +11,7 @@ import '../styles/Dashboard.css';
 
 function UserDashboard({ contract, user }) {
   const [activeSection, setActiveSection] = useState('browse');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
 
   useEffect(() => {
     console.log('[UserDashboard] Loaded with user:', user?.address);
@@ -29,8 +29,8 @@ function UserDashboard({ contract, user }) {
   return (
     <div className="user-dashboard">
       <div className="dashboard-header">
-        <h2>👤 User Dashboard</h2>
-        <p>Browse fields, manage your bookings, and track your activities</p>
+        <h2>👤 Bảng điều khiển người dùng</h2>
+        <p>Duyệt sân, đặt sân và quản lý lịch đặt của bạn</p>
       </div>
 
       <div className="dashboard-actions">
@@ -39,28 +39,28 @@ function UserDashboard({ contract, user }) {
           onClick={() => handleSectionChange('browse')}
           disabled={isLoading}
         >
-          🔍 Browse Fields
+          🔍 Danh sách sân
         </button>
         <button 
           className={`action-btn ${activeSection === 'my-bookings' ? 'active' : ''}`}
           onClick={() => handleSectionChange('my-bookings')}
           disabled={isLoading}
         >
-          📅 My Bookings
+          📅 Lịch đặt của tôi
         </button>
         <button 
           className={`action-btn ${activeSection === 'manage' ? 'active' : ''}`}
           onClick={() => handleSectionChange('manage')}
           disabled={isLoading}
         >
-          📋 Manage
+          📋 Quản lý
         </button>
       </div>
 
       <div className="dashboard-sections">
         {isLoading && (
           <div style={{ textAlign: 'center', padding: '24px', color: '#666' }}>
-            <p>Loading...</p>
+            <p>⏳ Đang tải...</p>
           </div>
         )}
 

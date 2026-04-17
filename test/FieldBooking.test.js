@@ -1,361 +1,290 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { expect } = require('chai');
+const { ethers } = require('hardhat');
+const { anyValue } = require('@nomicfoundation/hardhat-chai-matchers/withArgs');
 
-describe("FieldBooking Smart Contract", function () {
+describe('FieldBooking Smart Contract (current API)', function () {
   let fieldBooking;
-  let owner, fieldOwner, user1, user2;
-  let fieldId = 1;
-  let bookingId = 1;
+  let owner, user1, user2;
 
-  const PRICE_PER_HOUR = ethers.parseEther("0.1");
-  const BOOKING_HOURS = 2;
-  const TOTAL_PRICE = PRICE_PER_HOUR * BigInt(BOOKING_HOURS);
+  const PRICE_PER_HOUR = ethers.parseEther('0.1');
+
+  async function deploy() {
+    const Factory = await ethers.getContractFactory('FieldBooking');
+    const contract = await Factory.deploy();
+    return contract;
+  }
+
+  async function latestTimestamp() {
+    const block = await ethers.provider.getBlock('latest');
+    return Number(block.timestamp);
+  }
 
   beforeEach(async function () {
-    [owner, fieldOwner, user1, user2] = await ethers.getSigners();
-
-    // Deploy contract
-    const FieldBookingFactory = await ethers.getContractFactory("FieldBooking");
-    fieldBooking = await FieldBookingFactory.deploy();
+    [owner, user1, user2] = await ethers.getSigners();
+    fieldBooking = await deploy();
   });
 
-  describe("Field Creation", function () {
-    it("Should create a field successfully", async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
+  describe('Field Management (admin-only)', function () {
+    it('Owner can create a field', async function () {
+      await expect(fieldBooking.createField('San A', PRICE_PER_HOUR))
+        .to.emit(fieldBooking, 'FieldCreated')
+        .withArgs(1, 'San A', PRICE_PER_HOUR, owner.address);
 
       const field = await fieldBooking.getField(1);
-      expect(field.name).to.equal("Sân bóng đá A");
-      expect(field.owner).to.equal(fieldOwner.address);
+      expect(field.id).to.equal(1);
+      expect(field.name).to.equal('San A');
       expect(field.pricePerHour).to.equal(PRICE_PER_HOUR);
-      expect(field.isActive).to.be.true;
+      expect(field.isActive).to.equal(true);
+      expect(field.owner).to.equal(owner.address);
     });
 
-    it("Should emit FieldCreated event", async function () {
-      await expect(
-        fieldBooking
-          .connect(fieldOwner)
-          .createField(
-            "Sân bóng đá A",
-            "123 Đường ABC, TP HCM",
-            "Sân bóng 5 người",
-            PRICE_PER_HOUR
-          )
-      )
-        .to.emit(fieldBooking, "FieldCreated")
-        .withArgs(1, "Sân bóng đá A", fieldOwner.address);
+    it('Non-owner cannot create a field', async function () {
+      await expect(fieldBooking.connect(user1).createField('San A', PRICE_PER_HOUR))
+        .to.be.revertedWith('Only owner can call this');
     });
 
-    it("Should fail if price is 0", async function () {
-      await expect(
-        fieldBooking
-          .connect(fieldOwner)
-          .createField("Sân bóng đá A", "123 Đường ABC, TP HCM", "Sân bóng 5 người", 0)
-      ).to.be.revertedWith("Price must be greater than 0");
+    it('Create field validates name and price', async function () {
+      await expect(fieldBooking.createField('', PRICE_PER_HOUR))
+        .to.be.revertedWith('Field name cannot be empty');
+      await expect(fieldBooking.createField('San A', 0))
+        .to.be.revertedWith('Price must be greater than 0');
     });
 
-    it("Should fail if name is empty", async function () {
-      await expect(
-        fieldBooking
-          .connect(fieldOwner)
-          .createField("", "123 Đường ABC, TP HCM", "Sân bóng 5 người", PRICE_PER_HOUR)
-      ).to.be.revertedWith("Name cannot be empty");
-    });
-  });
+    it('Owner can update field price', async function () {
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
 
-  describe("Field Update", function () {
-    beforeEach(async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
-    });
-
-    it("Should update field successfully", async function () {
-      const newPrice = ethers.parseEther("0.15");
-      await fieldBooking
-        .connect(fieldOwner)
-        .updateField(
-          1,
-          "Sân bóng đá A - Updated",
-          "456 Đường XYZ",
-          "Sân bóng 11 người",
-          newPrice
-        );
+      const newPrice = ethers.parseEther('0.15');
+      await expect(fieldBooking.updateFieldPrice(1, newPrice))
+        .to.emit(fieldBooking, 'FieldUpdated')
+        .withArgs(1, newPrice);
 
       const field = await fieldBooking.getField(1);
-      expect(field.name).to.equal("Sân bóng đá A - Updated");
       expect(field.pricePerHour).to.equal(newPrice);
     });
 
-    it("Should not allow non-owner to update field", async function () {
-      await expect(
-        fieldBooking.connect(user1).updateField(
-          1,
-          "Sân bóng đá A - Updated",
-          "456 Đường XYZ",
-          "Sân bóng 11 người",
-          PRICE_PER_HOUR
-        )
-      ).to.be.revertedWith("Only field owner can call this");
+    it('Update price is owner-only and requires > 0', async function () {
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
+
+      await expect(fieldBooking.connect(user1).updateFieldPrice(1, PRICE_PER_HOUR))
+        .to.be.revertedWith('Only owner can call this');
+
+      await expect(fieldBooking.updateFieldPrice(1, 0))
+        .to.be.revertedWith('Price must be greater than 0');
+    });
+
+    it('Owner can toggle field status', async function () {
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
+
+      await expect(fieldBooking.toggleFieldStatus(1))
+        .to.emit(fieldBooking, 'FieldStatusChanged')
+        .withArgs(1, false);
+
+      let field = await fieldBooking.getField(1);
+      expect(field.isActive).to.equal(false);
+
+      await expect(fieldBooking.toggleFieldStatus(1))
+        .to.emit(fieldBooking, 'FieldStatusChanged')
+        .withArgs(1, true);
+
+      field = await fieldBooking.getField(1);
+      expect(field.isActive).to.equal(true);
     });
   });
 
-  describe("Booking Creation", function () {
+  describe('Booking Management', function () {
     beforeEach(async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
     });
 
-    it("Should create booking successfully", async function () {
-      const startTime = Math.floor(Date.now() / 1000) + 86400; // Tomorrow
-      const endTime = startTime + 2 * 3600; // 2 hours later
+    it('User can book an active field with correct payment', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600; // 2 hours
+      const required = PRICE_PER_HOUR * 2n;
 
-      const tx = await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
+      await expect(
+        fieldBooking.connect(user1).bookField(1, start, end, { value: required })
+      ).to.emit(fieldBooking, 'BookingCreated');
 
-      const booking = await fieldBooking.getBooking(1);
+      const booking = await fieldBooking.bookings(1);
+      expect(booking.id).to.equal(1);
       expect(booking.fieldId).to.equal(1);
       expect(booking.user).to.equal(user1.address);
+      expect(booking.startTime).to.equal(start);
+      expect(booking.endTime).to.equal(end);
+      expect(booking.amountPaid).to.equal(required);
       expect(booking.status).to.equal(0); // Pending
-      expect(booking.totalPrice).to.equal(TOTAL_PRICE);
     });
 
-    it("Should emit BookingCreated event", async function () {
-      const startTime = Math.floor(Date.now() / 1000) + 86400;
-      const endTime = startTime + 2 * 3600;
+    it('Booking transfers ETH into the contract (user pays, contract receives)', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600; // 2 hours
+      const required = PRICE_PER_HOUR * 2n;
+
+      const tx = await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+      await tx.wait();
+
+      // Internal accounting
+      const stats = await fieldBooking.getContractStats();
+      expect(stats.contractETHBalance).to.equal(required);
+
+      // Actual on-chain ETH balance held by the contract
+      const onChainBal = await ethers.provider.getBalance(fieldBooking.target);
+      expect(onChainBal).to.equal(required);
+    });
+
+    it('Confirming booking increases admin withdrawable balance by 95%', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600; // 2 hours
+      const required = PRICE_PER_HOUR * 2n;
+      const ownerAmount = (required * 95n) / 100n;
+
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+
+      await expect(fieldBooking.confirmBooking(1))
+        .to.emit(fieldBooking, 'BookingPaymentReceived')
+        .withArgs(1, 1, user1.address, required, ownerAmount, anyValue);
+
+      const bal = await fieldBooking.getBalance(owner.address);
+      expect(bal).to.equal(ownerAmount);
+    });
+
+    it('Booking rejects insufficient payment', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
 
       await expect(
-        fieldBooking
-          .connect(user1)
-          .createBooking(1, startTime, endTime, { value: TOTAL_PRICE })
-      ).to.emit(fieldBooking, "BookingCreated");
+        fieldBooking.connect(user1).bookField(1, start, end, { value: ethers.parseEther('0.05') })
+      ).to.be.revertedWith('Insufficient payment');
     });
 
-    it("Should fail if booking in the past", async function () {
-      const startTime = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
-      const endTime = startTime + 2 * 3600;
+    it('Booking rejects past start time', async function () {
+      const now = await latestTimestamp();
+      const start = now - 10;
+      const end = start + 3600;
 
       await expect(
-        fieldBooking
-          .connect(user1)
-          .createBooking(1, startTime, endTime, { value: TOTAL_PRICE })
-      ).to.be.revertedWith("Start time must be in the future");
+        fieldBooking.connect(user1).bookField(1, start, end, { value: PRICE_PER_HOUR })
+      ).to.be.revertedWith('Start time must be in future');
     });
 
-    it("Should fail if insufficient payment", async function () {
-      const startTime = Math.floor(Date.now() / 1000) + 86400;
-      const endTime = startTime + 2 * 3600;
+    it('Detects time conflicts', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = PRICE_PER_HOUR * 2n;
+
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
 
       await expect(
-        fieldBooking
-          .connect(user1)
-          .createBooking(1, startTime, endTime, { value: ethers.parseEther("0.05") })
-      ).to.be.revertedWith("Insufficient payment");
+        fieldBooking.connect(user2).bookField(1, start + 1800, end + 1800, { value: required })
+      ).to.be.revertedWith('Time slot is already booked');
     });
 
-    it("Should detect time conflicts", async function () {
-      const startTime = Math.floor(Date.now() / 1000) + 86400;
-      const endTime = startTime + 2 * 3600;
+    it('Admin can confirm booking; non-admin cannot', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = PRICE_PER_HOUR * 2n;
 
-      // Create first booking
-      await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
 
-      // Try to create overlapping booking
-      await expect(
-        fieldBooking
-          .connect(user2)
-          .createBooking(1, startTime + 1800, endTime + 1800, { value: TOTAL_PRICE })
-      ).to.be.revertedWith("Time slot is already booked");
-    });
-  });
+      await expect(fieldBooking.connect(user2).confirmBooking(1))
+        .to.be.revertedWith('Only owner can call this');
 
-  describe("Booking Confirmation", function () {
-    let startTime, endTime;
+      await expect(fieldBooking.confirmBooking(1))
+        .to.emit(fieldBooking, 'BookingConfirmed');
 
-    beforeEach(async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
-
-      startTime = Math.floor(Date.now() / 1000) + 86400;
-      endTime = startTime + 2 * 3600;
-
-      await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
-    });
-
-    it("Should confirm booking", async function () {
-      await fieldBooking.connect(fieldOwner).confirmBooking(1);
-
-      const booking = await fieldBooking.getBooking(1);
+      const booking = await fieldBooking.bookings(1);
       expect(booking.status).to.equal(1); // Confirmed
     });
 
-    it("Should emit BookingConfirmed event", async function () {
-      await expect(fieldBooking.connect(fieldOwner).confirmBooking(1))
-        .to.emit(fieldBooking, "BookingConfirmed")
-        .withArgs(1);
-    });
+    it('User can cancel a pending booking and gets refunded', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = PRICE_PER_HOUR * 2n;
 
-    it("Should not allow non-owner to confirm", async function () {
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+
+      await expect(fieldBooking.connect(user1).cancelBooking(1))
+        .to.emit(fieldBooking, 'BookingCancelled')
+        .withArgs(1, user1.address, required);
+
+      const booking = await fieldBooking.bookings(1);
+      expect(booking.status).to.equal(2); // Cancelled
+
+      // Once cancelled, conflict should no longer apply
       await expect(
-        fieldBooking.connect(user2).confirmBooking(1)
-      ).to.be.revertedWith("Only field owner can confirm booking");
+        fieldBooking.connect(user2).bookField(1, start + 1800, end + 1800, { value: required })
+      ).to.emit(fieldBooking, 'BookingCreated');
+    });
+
+    it('Cannot cancel a confirmed booking', async function () {
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = PRICE_PER_HOUR * 2n;
+
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+      await fieldBooking.confirmBooking(1);
+
+      await expect(fieldBooking.connect(user1).cancelBooking(1))
+        .to.be.revertedWith('Cannot cancel confirmed bookings');
     });
   });
 
-  describe("Check-in", function () {
-    let startTime, endTime;
+  describe('Withdrawals (admin-only)', function () {
+    it('Owner can withdraw after confirming booking', async function () {
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
 
-    beforeEach(async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600;
+      const required = PRICE_PER_HOUR * 2n;
 
-      startTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      endTime = startTime + 2 * 3600; // 2 hours booking
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+      await fieldBooking.confirmBooking(1);
 
-      await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
+      const bal = await fieldBooking.getBalance(owner.address);
+      expect(bal).to.be.gt(0n);
 
-      // Confirm booking
-      await fieldBooking.connect(fieldOwner).confirmBooking(1);
+      await expect(fieldBooking.withdrawBalance())
+        .to.emit(fieldBooking, 'BalanceWithdrawn');
 
-      // Advance time to start time
-      await ethers.provider.send("evm_setNextBlockTimestamp", [startTime]);
-      await ethers.provider.send("evm_mine");
+      const balAfter = await fieldBooking.getBalance(owner.address);
+      expect(balAfter).to.equal(0n);
     });
 
-    it("Should check-in successfully", async function () {
-      await fieldBooking.connect(user1).checkIn(1);
+    it('Withdraw transfers ETH from contract to admin wallet (minus gas)', async function () {
+      await fieldBooking.createField('San A', PRICE_PER_HOUR);
 
-      const booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(2); // Checked-in
-    });
+      const now = await latestTimestamp();
+      const start = now + 3600;
+      const end = start + 2 * 3600; // 2 hours
+      const required = PRICE_PER_HOUR * 2n;
+      const ownerAmount = (required * 95n) / 100n;
 
-    it("Should emit CheckinCompleted event", async function () {
-      await expect(fieldBooking.connect(user1).checkIn(1))
-        .to.emit(fieldBooking, "CheckinCompleted")
-        .withArgs(1);
-    });
-  });
+      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
+      await fieldBooking.confirmBooking(1);
 
-  describe("Refund", function () {
-    let startTime, endTime;
+      const ownerBalBefore = await ethers.provider.getBalance(owner.address);
+      const contractBalBefore = await ethers.provider.getBalance(fieldBooking.target);
+      expect(contractBalBefore).to.equal(required);
 
-    beforeEach(async function () {
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
+      const tx = await fieldBooking.withdrawBalance();
+      const receipt = await tx.wait();
+      const gasPrice = receipt.gasPrice ?? receipt.effectiveGasPrice;
+      const gasCost = receipt.gasUsed * gasPrice;
 
-      startTime = Math.floor(Date.now() / 1000) + 86400;
-      endTime = startTime + 2 * 3600;
+      const ownerBalAfter = await ethers.provider.getBalance(owner.address);
+      const contractBalAfter = await ethers.provider.getBalance(fieldBooking.target);
 
-      await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
-    });
-
-    it("Should refund pending booking", async function () {
-      const balanceBefore = await ethers.provider.getBalance(user1.address);
-
-      await fieldBooking.connect(user1).refundBooking(1);
-
-      const booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(5); // Refunded
-    });
-
-    it("Should emit RefundProcessed event", async function () {
-      await expect(fieldBooking.connect(user1).refundBooking(1))
-        .to.emit(fieldBooking, "RefundProcessed")
-        .withArgs(1, TOTAL_PRICE);
-    });
-  });
-
-  describe("Integration Test - Full Flow", function () {
-    it("Complete flow: Create field -> Book -> Confirm -> Check-in -> Complete Booking", async function () {
-      // 1. Create field
-      await fieldBooking
-        .connect(fieldOwner)
-        .createField(
-          "Sân bóng đá A",
-          "123 Đường ABC, TP HCM",
-          "Sân bóng 5 người",
-          PRICE_PER_HOUR
-        );
-
-      // 2. Create booking
-      const startTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const endTime = startTime + 2 * 3600;
-
-      await fieldBooking
-        .connect(user1)
-        .createBooking(1, startTime, endTime, { value: TOTAL_PRICE });
-
-      let booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(0); // Pending
-
-      // 3. Confirm booking
-      await fieldBooking.connect(fieldOwner).confirmBooking(1);
-      booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(1); // Confirmed
-
-      // 4. Advance to check-in time
-      await ethers.provider.send("evm_setNextBlockTimestamp", [startTime]);
-      await ethers.provider.send("evm_mine");
-
-      // 5. Check-in
-      await fieldBooking.connect(user1).checkIn(1);
-      booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(2); // Checked-in
-
-      // 6. Complete booking (wait for end time)
-      await ethers.provider.send("evm_setNextBlockTimestamp", [endTime]);
-      await ethers.provider.send("evm_mine");
-      // For testing, we'll just move forward in time using hardhat
-      await ethers.provider.send("evm_increaseTime", [7200]); // 2 hours
-      await ethers.provider.send("evm_mine"); // Mine a new block
-
-      await fieldBooking.connect(user1).completeBooking(1);
-      booking = await fieldBooking.getBooking(1);
-      expect(booking.status).to.equal(3); // Completed
+      expect(contractBalAfter).to.equal(contractBalBefore - ownerAmount);
+      expect(ownerBalAfter).to.equal(ownerBalBefore + ownerAmount - gasCost);
     });
   });
 });

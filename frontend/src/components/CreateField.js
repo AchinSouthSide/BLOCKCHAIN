@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
+import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
 import '../styles/CreateField.css';
 
-function CreateField({ contract }) {
+function CreateField({ contract, onSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
-    location: '',
-    description: '',
     pricePerHour: ''
   });
   const [loading, setLoading] = useState(false);
@@ -19,29 +18,31 @@ function CreateField({ contract }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.location || !formData.description || !formData.pricePerHour) {
+    if (!formData.name || !formData.pricePerHour) {
       alert('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
     try {
       setLoading(true);
+      const priceWei = ethers.parseEther(String(formData.pricePerHour));
       await ContractService.createField(
         contract,
         formData.name,
-        formData.location,
-        formData.description,
-        formData.pricePerHour
+        priceWei
       );
       alert('Tạo sân thành công! ✅');
       setFormData({
         name: '',
-        location: '',
-        description: '',
         pricePerHour: ''
       });
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
-      alert('Error creating field: ' + error.message);
+      alert('Lỗi tạo sân: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -62,32 +63,6 @@ function CreateField({ contract }) {
             onChange={handleChange}
             placeholder="VD: Sân bóng đá A"
             disabled={loading}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="location">Địa điểm *</label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            placeholder="VD: 123 Đường ABC, TP HCM"
-            disabled={loading}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="description">Mô tả *</label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="VD: Sân bóng 5 người, có mái che..."
-            disabled={loading}
-            rows="4"
           />
         </div>
 

@@ -28,7 +28,7 @@ function FieldDetails({ contract, fieldId, onClose }) {
       const bookingsData = await ContractService.getFieldBookings(contract, fieldId);
       setBookings(bookingsData);
     } catch (error) {
-      alert('Error loading field details: ' + error.message);
+      alert('Lỗi tải chi tiết sân: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -38,10 +38,7 @@ function FieldDetails({ contract, fieldId, onClose }) {
     const statusMap = {
       0: { text: 'Chờ xác nhận', color: '#ffc107' },
       1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã check-in', color: '#28a745' },
-      3: { text: 'Hoàn thành', color: '#6c757d' },
-      4: { text: 'Đã huỷ', color: '#dc3545' },
-      5: { text: 'Đã hoàn tiền', color: '#e83e8c' }
+      2: { text: 'Đã huỷ', color: '#dc3545' }
     };
     const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
     return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
@@ -63,10 +60,6 @@ function FieldDetails({ contract, fieldId, onClose }) {
           <h3>ℹ️ Thông tin sân</h3>
           <div className="info-grid">
             <div className="info-item">
-              <label>📍 Địa điểm</label>
-              <p>{field.location}</p>
-            </div>
-            <div className="info-item">
               <label>💵 Giá</label>
               <p>{field.pricePerHour} wei/giờ</p>
             </div>
@@ -81,10 +74,6 @@ function FieldDetails({ contract, fieldId, onClose }) {
               </p>
             </div>
           </div>
-          <div className="info-item full">
-            <label>📝 Mô tả</label>
-            <p>{field.description}</p>
-          </div>
         </div>
       </div>
 
@@ -96,11 +85,11 @@ function FieldDetails({ contract, fieldId, onClose }) {
         </div>
         <div className="stat-card">
           <span className="stat-label">Đã xác nhận</span>
-          <span className="stat-value">{bookings.filter(b => [1, 2, 3].includes(b.status)).length}</span>
+          <span className="stat-value">{bookings.filter(b => b.status === 1).length}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Hoàn thành</span>
-          <span className="stat-value">{bookings.filter(b => b.status === 3).length}</span>
+          <span className="stat-label">Đã huỷ</span>
+          <span className="stat-value">{bookings.filter(b => b.status === 2).length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Đang chờ</span>
@@ -124,7 +113,7 @@ function FieldDetails({ contract, fieldId, onClose }) {
                 </div>
                 <div className="booking-body">
                   <p><strong>👤 Người dùng:</strong> {booking.user.substring(0, 6)}...{booking.user.substring(38)}</p>
-                  <p><strong>💰 Giá:</strong> {booking.totalPrice} ETH</p>
+                  <p><strong>💰 Số tiền đã thanh toán:</strong> {booking.amountPaid} ETH</p>
                   <p><strong>📅 Bắt đầu:</strong> {new Date(booking.startTime * 1000).toLocaleString('vi-VN')}</p>
                   <p><strong>📅 Kết thúc:</strong> {new Date(booking.endTime * 1000).toLocaleString('vi-VN')}</p>
                   <p><strong>⏱️ Thời lượng:</strong> {((booking.endTime - booking.startTime) / 3600).toFixed(1)} giờ</p>

@@ -11,7 +11,8 @@ function NetworkSwitcher() {
   const networks = [
     { id: 31337, name: 'Hardhat Local', type: 'local' },
     { id: 11155111, name: 'Sepolia Testnet', type: 'testnet' },
-    { id: 1, name: 'Ethereum Mainnet', type: 'mainnet' },
+    // Mainnet intentionally not exposed in UI
+    // { id: 1, name: 'Ethereum Mainnet', type: 'mainnet' },
   ];
 
   // Update current network on mount

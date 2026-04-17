@@ -3,30 +3,49 @@ import CONTRACT_ABI from './abi/FieldBooking.json';
 
 class ContractService {
   static async connectWallet() {
+    console.log('[ContractService] connectWallet() called');
+    
     if (!window.ethereum) {
-      throw new Error('MetaMask not installed');
+      console.error('[ContractService] window.ethereum not found');
+      throw new Error('MetaMask chưa được cài đặt. Vui lòng cài MetaMask extension.');
     }
 
     try {
-      // Request account access
+      console.log('[ContractService] Requesting accounts...');
+      
+      // Request account access - This will show MetaMask popup
       const accounts = await window.ethereum.request({ 
         method: 'eth_requestAccounts' 
       });
       
+      if (!accounts || accounts.length === 0) {
+        throw new Error('Không nhận được account từ MetaMask');
+      }
+      
+      console.log('[ContractService] Accounts granted:', accounts);
+      
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
+      console.log('[ContractService] Signer created');
+      
       // Check network
       const network = await provider.getNetwork();
+      console.log('[ContractService] Network:', network.name, '- Chain ID:', network.chainId);
+      
       const contractAddress = window.location.hostname === 'localhost' 
         ? process.env.REACT_APP_CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3'
         : process.env.REACT_APP_CONTRACT_ADDRESS;
+      
+      console.log('[ContractService] Contract Address:', contractAddress);
 
       const contract = new ethers.Contract(
         contractAddress,
         CONTRACT_ABI,
         signer
       );
+      
+      console.log('[ContractService] Contract created successfully');
 
       return {
         isConnected: true,
@@ -37,8 +56,16 @@ class ContractService {
         network: network.name
       };
     } catch (error) {
-      console.error('Failed to connect wallet:', error);
-      throw error;
+      console.error('[ContractService] Connection error:', error);
+      
+      // Provide user-friendly error messages
+      if (error.code === -32602) {
+        throw new Error('Lỗi tham số RPC. Vui lòng kiểm tra cấu hình MetaMask.');
+      } else if (error.code === 'NETWORK_ERROR') {
+        throw new Error('Lỗi kết nối mạng. Kiểm tra Hardhat node có chạy không?');
+      } else {
+        throw error;
+      }
     }
   }
 

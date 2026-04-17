@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test_and_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Hardhat tests
+        run: npm test
+
+      - name: Install frontend deps
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          REACT_APP_NETWORK_ID: "31337"
+          REACT_APP_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000000"
+        run: npm run build

@@ -10,6 +10,44 @@ class ContractService {
 
   // ==================== INTERNAL GUARDS ====================
 
+  static _getConfiguredContractAddress() {
+    const raw = process.env.REACT_APP_CONTRACT_ADDRESS;
+    const contractAddress = typeof raw === 'string' ? raw.trim() : '';
+
+    if (!contractAddress) {
+      throw new Error(
+        'Thiếu REACT_APP_CONTRACT_ADDRESS (contract address). ' +
+        'Nếu chạy local: tạo frontend/.env.local. ' +
+        'Nếu deploy: set GitHub Variables/Secrets rồi build lại.'
+      );
+    }
+
+    if (!ethers.isAddress(contractAddress)) {
+      throw new Error(
+        `REACT_APP_CONTRACT_ADDRESS không hợp lệ: ${contractAddress}. ` +
+        'Hãy kiểm tra lại address 0x... (40 hex ký tự).'
+      );
+    }
+
+    return contractAddress;
+  }
+
+  static _assertExpectedNetwork(actualChainId) {
+    const expectedRaw = process.env.REACT_APP_NETWORK_ID;
+    if (!expectedRaw) return;
+
+    const expected = Number.parseInt(String(expectedRaw), 10);
+    if (!Number.isFinite(expected)) return;
+
+    const actual = Number(actualChainId);
+    if (Number.isFinite(actual) && actual !== expected) {
+      throw new Error(
+        `Sai network: MetaMask đang ở chainId=${actual}, nhưng app được build cho chainId=${expected}. ` +
+        'Hãy switch network trong MetaMask rồi thử lại.'
+      );
+    }
+  }
+
   static _requireMethod(contract, methodName) {
     if (!contract) {
       throw new Error('Contract chưa được khởi tạo');
@@ -54,8 +92,12 @@ class ContractService {
       const network = await provider.getNetwork();
       
       console.log('[ContractService] ✅ Connected to', network.name, 'ChainID:', network.chainId);
-      
-      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
+
+      // Ensure the build-time config matches the user's MetaMask network
+      this._assertExpectedNetwork(network.chainId);
+
+      // Prevent ethers v6: INVALID_ARGUMENT (target=null)
+      const contractAddress = this._getConfiguredContractAddress();
       const contract = new ethers.Contract(
         contractAddress,
         FIELD_BOOKING_ABI,
@@ -762,6 +804,13 @@ class ContractService {
    */
   static setupAdminEventListeners(provider, contractAddress, onBookingPaymentReceived, onAdminWithdrawal, onBookingCreated) {
     try {
+      if (!contractAddress || !ethers.isAddress(contractAddress)) {
+        throw new Error(
+          'Contract address không hợp lệ (null/undefined hoặc sai định dạng). ' +
+          'Hãy đăng nhập lại ví hoặc cấu hình REACT_APP_CONTRACT_ADDRESS đúng.'
+        );
+      }
+
       const contract = new ethers.Contract(
         contractAddress,
         FIELD_BOOKING_ABI,

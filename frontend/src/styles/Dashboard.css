@@ -151,6 +151,16 @@
   letter-spacing: 0.2px;
 }
 
+.stat-card.active-highlight {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.25);
+}
+
+.stat-card.revenue-highlight {
+  background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.25);
+}
+
 /* ===== BROWSE FIELDS SECTION ===== */
 .section-all-fields h3,
 .section-all-bookings h3 {

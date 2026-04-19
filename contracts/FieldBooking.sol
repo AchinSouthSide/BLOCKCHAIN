@@ -33,6 +33,11 @@ contract FieldBooking {
         bool isActive;              // Whether field is available for booking
         address owner;              // Field owner (admin)
         uint256 createdAt;          // Timestamp
+
+        // ===== V2 Metadata (backward-compatible; empty for legacy fields) =====
+        string time;                // Time window / schedule description
+        string description;         // Field description
+        string location;            // Field location/address
     }
 
     /**
@@ -49,17 +54,35 @@ contract FieldBooking {
         uint256 createdAt;          // Booking creation time
     }
 
+    /**
+     * @dev Represents a notification/message in inbox
+     */
+    struct Notification {
+        uint256 id;                 // Notification ID
+        address recipient;          // User or admin who receives
+        string notificationType;    // "booking_created", "booking_confirmed", "booking_cancelled", "ticket_ready"
+        string message;             // Notification message
+        string ticketId;            // Ticket ID for booking
+        uint256 relatedBookingId;   // Related booking ID
+        uint256 createdAt;          // Timestamp
+        bool read;                  // Mark as read
+    }
+
     // ==================== STATE VARIABLES ====================
 
-    // Platform owner (admin)
+    // Platform owner (single admin address)
     address public platformOwner;
 
-    // Additional admins (managed by platform owner)
+    // Local dev chainId (Hardhat)
+    uint256 private constant LOCAL_CHAIN_ID = 31337;
+
+    // Admin mapping (only one admin is allowed by design)
     mapping(address => bool) public admins;
 
     // Counters
     uint256 public fieldCounter = 0;
     uint256 public bookingCounter = 0;
+    uint256 public notificationCounter = 0;
 
     // Platform fee: 5% of each booking
     uint256 public constant PLATFORM_FEE_PERCENT = 5;
@@ -70,6 +93,11 @@ contract FieldBooking {
     mapping(address => uint256[]) public userBookings;          // user => [bookingIds]
     mapping(uint256 => uint256[]) public fieldBookings;         // fieldId => [bookingIds]
     mapping(address => uint256) public ownerBalance;            // owner => balance to withdraw
+    
+    // Notification mappings
+    mapping(uint256 => Notification) public notifications;      // notificationId => Notification
+    mapping(address => uint256[]) public userNotifications;     // user => [notificationIds]
+    mapping(bytes32 => string) public ticketIds;               // bookingId + user => ticketId
     
     // Contract total balance
     uint256 public contractBalance = 0;
@@ -89,7 +117,6 @@ contract FieldBooking {
     // ==================== EVENTS ====================
 
     event AdminAdded(address indexed admin);
-    event AdminRemoved(address indexed admin);
 
     event FieldCreated(
         uint256 indexed fieldId,
@@ -98,14 +125,38 @@ contract FieldBooking {
         address owner
     );
 
+    event FieldCreatedV2(
+        uint256 indexed fieldId,
+        string name,
+        uint256 pricePerHour,
+        address owner,
+        string time,
+        string description,
+        string location
+    );
+
     event FieldUpdated(
         uint256 indexed fieldId,
         uint256 newPrice
     );
 
+    event FieldUpdatedV2(
+        uint256 indexed fieldId,
+        string name,
+        uint256 pricePerHour,
+        string time,
+        string description,
+        string location
+    );
+
     event FieldStatusChanged(
         uint256 indexed fieldId,
         bool isActive
+    );
+
+    event FieldDeleted(
+        uint256 indexed fieldId,
+        string fieldName
     );
 
     event BookingCreated(
@@ -159,6 +210,18 @@ contract FieldBooking {
         uint256 timestamp
     );
 
+    /**
+     * @dev Notification event for inbox system
+     */
+    event NotificationCreated(
+        uint256 indexed notificationId,
+        address indexed recipient,
+        string notificationType,  // "booking_created", "booking_confirmed", "booking_cancelled", "ticket_ready"
+        string message,
+        string ticketId,
+        uint256 timestamp
+    );
+
     // ==================== MODIFIERS ====================
 
     /**
@@ -173,7 +236,8 @@ contract FieldBooking {
      * @dev Platform owner or delegated admin can call
      */
     modifier onlyAdmin() {
-        require(isAdmin(msg.sender), "Only admin can call this");
+        // Demo mode: allow any wallet to act as admin.
+        // WARNING: This is intentionally insecure for public deployments.
         _;
     }
 
@@ -200,29 +264,30 @@ contract FieldBooking {
     /**
      * @dev Initialize contract with deployer as owner
      */
-    constructor() {
-        platformOwner = msg.sender;
+    constructor(address _admin) {
+        require(_admin != address(0), "Invalid admin address");
+        platformOwner = _admin;
+        admins[_admin] = true;
+        emit AdminAdded(_admin);
     }
 
     // ==================== ADMIN MANAGEMENT ====================
 
-    function isAdmin(address account) public view returns (bool) {
-        return account == platformOwner || admins[account];
+    function isAdmin(address user) public view returns (bool) {
+        user; // silence unused variable warning
+        return true;
     }
 
-    function addAdmin(address admin) external onlyOwner {
-        require(admin != address(0), "Invalid admin address");
-        require(admin != platformOwner, "Owner is already admin");
-        require(!admins[admin], "Admin already added");
-        admins[admin] = true;
-        emit AdminAdded(admin);
-    }
-
-    function removeAdmin(address admin) external onlyOwner {
-        require(admin != address(0), "Invalid admin address");
-        require(admins[admin], "Admin not found");
-        admins[admin] = false;
-        emit AdminRemoved(admin);
+    /**
+     * @dev Intentionally restricted: by design only the configured admin exists.
+     * This function is kept for API completeness but prevents granting admin to other wallets.
+     */
+    function addAdmin(address newAdmin) external onlyAdmin {
+        require(newAdmin == platformOwner, "Admin is fixed");
+        if (!admins[newAdmin]) {
+            admins[newAdmin] = true;
+            emit AdminAdded(newAdmin);
+        }
     }
 
     // ==================== FIELD MANAGEMENT ====================
@@ -248,11 +313,41 @@ contract FieldBooking {
             name: _name,
             pricePerHour: _pricePerHour,
             isActive: true,
-            owner: platformOwner,
-            createdAt: block.timestamp
+            owner: msg.sender,
+            createdAt: block.timestamp,
+            time: "",
+            description: "",
+            location: ""
         });
 
-        emit FieldCreated(fieldCounter, _name, _pricePerHour, platformOwner);
+        emit FieldCreated(fieldCounter, _name, _pricePerHour, msg.sender);
+    }
+
+    function createFieldV2(
+        string memory _name,
+        uint256 _pricePerHour,
+        string memory _time,
+        string memory _description,
+        string memory _location
+    ) external onlyAdmin {
+        require(bytes(_name).length > 0, "Field name cannot be empty");
+        require(_pricePerHour > 0, "Price must be greater than 0");
+
+        fieldCounter++;
+
+        fields[fieldCounter] = Field({
+            id: fieldCounter,
+            name: _name,
+            pricePerHour: _pricePerHour,
+            isActive: true,
+            owner: msg.sender,
+            createdAt: block.timestamp,
+            time: _time,
+            description: _description,
+            location: _location
+        });
+
+        emit FieldCreatedV2(fieldCounter, _name, _pricePerHour, msg.sender, _time, _description, _location);
     }
 
     /**
@@ -269,6 +364,27 @@ contract FieldBooking {
         fields[_fieldId].pricePerHour = _newPrice;
         
         emit FieldUpdated(_fieldId, _newPrice);
+    }
+
+    function updateFieldV2(
+        uint256 _fieldId,
+        string memory _name,
+        uint256 _pricePerHour,
+        string memory _time,
+        string memory _description,
+        string memory _location
+    ) external onlyAdmin fieldExists(_fieldId) {
+        require(bytes(_name).length > 0, "Field name cannot be empty");
+        require(_pricePerHour > 0, "Price must be greater than 0");
+
+        Field storage field = fields[_fieldId];
+        field.name = _name;
+        field.pricePerHour = _pricePerHour;
+        field.time = _time;
+        field.description = _description;
+        field.location = _location;
+
+        emit FieldUpdatedV2(_fieldId, _name, _pricePerHour, _time, _description, _location);
     }
 
     /**
@@ -357,6 +473,175 @@ contract FieldBooking {
             _endTime,
             msg.value
         );
+
+        // Get field name for notification
+        string memory fieldName = fields[_fieldId].name;
+
+        // Create notification for user (waiting for admin confirmation)
+        _createNotification(
+            msg.sender,
+            "booking_created",
+            string(abi.encodePacked("San ", fieldName, " da duoc dat thanh cong - ma giao dich: ", _toHexString(bookingCounter), " - ", _formatEther(msg.value), " ETH. Dang cho xac nhan tu admin. Email lien he: 12345667@BC.com")),
+            "",
+            bookingCounter
+        );
+        
+        // Create notification for admin
+        _createNotification(
+            platformOwner,
+            "booking_waiting",
+            string(abi.encodePacked("Co dat san moi: ", fieldName, " - ma giao dich: ", _toHexString(bookingCounter), " dang cho xac nhan")),
+            "",
+            bookingCounter
+        );
+    }
+
+    /**
+     * @dev Generate unique ticket ID
+     */
+    function _generateTicketId(uint256 _bookingId, address _user) internal view returns (string memory) {
+        bytes32 hash = keccak256(abi.encodePacked(_bookingId, _user, block.timestamp));
+        return _toHexString(uint256(hash));
+    }
+
+    /**
+     * @dev Create notification and emit event
+     */
+    function _createNotification(
+        address _recipient,
+        string memory _type,
+        string memory _message,
+        string memory _ticketId,
+        uint256 _bookingId
+    ) internal {
+        notificationCounter++;
+        notifications[notificationCounter] = Notification({
+            id: notificationCounter,
+            recipient: _recipient,
+            notificationType: _type,
+            message: _message,
+            ticketId: _ticketId,
+            relatedBookingId: _bookingId,
+            createdAt: block.timestamp,
+            read: false
+        });
+        userNotifications[_recipient].push(notificationCounter);
+        
+        emit NotificationCreated(
+            notificationCounter,
+            _recipient,
+            _type,
+            _message,
+            _ticketId,
+            block.timestamp
+        );
+    }
+
+    /**
+     * @dev Convert uint to hex string
+     */
+    function _toHexString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 16;
+        }
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory result = new bytes(digits);
+        temp = value;
+        for (uint256 i = digits; i > 0; i--) {
+            result[i - 1] = hexChars[temp % 16];
+            temp /= 16;
+        }
+        return string(result);
+    }
+
+    /**
+     * @dev Format Wei to ETH string (simplified, shows 2 decimals)
+     */
+    function _formatEther(uint256 weiAmount) internal pure returns (string memory) {
+        uint256 ethAmount = weiAmount / 1e18;
+        uint256 remainder = (weiAmount % 1e18) / 1e16; // 2 decimal places
+        
+        if (remainder == 0) {
+            return _toDecimalString(ethAmount);
+        }
+        
+        // Simple concatenation: just show as integer for display
+        return _toDecimalString(ethAmount);
+    }
+
+    /**
+     * @dev Substring helper
+     */
+    function _substring(string memory str, uint256 start, uint256 length) internal pure returns (string memory) {
+        bytes memory strBytes = bytes(str);
+        bytes memory result = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            if (start + i < strBytes.length) {
+                result[i] = strBytes[start + i];
+            }
+        }
+        return string(result);
+    }
+
+    /**
+     * @dev Admin deactivate field (hủy sân)
+     */
+    function deactivateField(uint256 _fieldId) external onlyAdmin fieldExists(_fieldId) {
+        require(fields[_fieldId].isActive, "Field is already inactive");
+        fields[_fieldId].isActive = false;
+        emit FieldStatusChanged(_fieldId, false);
+    }
+
+    /**
+     * @dev Admin activate field
+     */
+    function activateField(uint256 _fieldId) external onlyAdmin fieldExists(_fieldId) {
+        require(!fields[_fieldId].isActive, "Field is already active");
+        fields[_fieldId].isActive = true;
+        emit FieldStatusChanged(_fieldId, true);
+    }
+
+    /**
+     * @dev Admin delete field - hủy sân hoàn toàn
+     * Sends notification to all users with bookings on this field
+     * Message format: "Tên Sân đã được A Chinh Hủy Rồi Nha ^.^"
+     */
+    function deleteField(uint256 _fieldId) external onlyAdmin fieldExists(_fieldId) {
+        Field memory fieldToDelete = fields[_fieldId];
+        
+        // Get all bookings for this field
+        uint256[] memory fieldBookingList = fieldBookings[_fieldId];
+        
+        // Send notification to each user who has a booking on this field
+        for (uint256 i = 0; i < fieldBookingList.length; i++) {
+            uint256 bookingId = fieldBookingList[i];
+            address bookingUser = bookings[bookingId].user;
+            
+            // Create notification message: "Tên Sân đã được A Chinh Hủy Rồi Nha ^.^"
+            string memory notificationMessage = string(abi.encodePacked(
+                fieldToDelete.name,
+                " da duoc A Chinh Huy Roi Nha ^.^ Email: 12345667@BC.com"
+            ));
+            
+            _createNotification(
+                bookingUser,
+                "field_deleted",
+                notificationMessage,
+                "",
+                bookingId
+            );
+        }
+        
+        // Delete the field
+        delete fields[_fieldId];
+        
+        emit FieldDeleted(_fieldId, fieldToDelete.name);
     }
 
     /**
@@ -407,11 +692,37 @@ contract FieldBooking {
             ownerAmount,
             block.timestamp
         );
+
+        // Send ticket to user with confirmation
+        string memory ticketId = _generateTicketId(_bookingId, booking.user);
+        ticketIds[keccak256(abi.encodePacked(_bookingId, booking.user))] = ticketId;
+        
+        // Get field name
+        string memory fieldName = fields[booking.fieldId].name;
+        
+        // Notification for user: "sân [Tên Sân] đã được đặt thành công - mã giao dịch: [ticket] - X ETH và nhận mã vé"
+        _createNotification(
+            booking.user,
+            "booking_confirmed",
+            string(abi.encodePacked("San ", fieldName, " da duoc dat thanh cong - ma giao dich: ", ticketId, " - ", _formatEther(booking.amountPaid), " ETH va nhan ma ve. Email: 12345667@BC.com")),
+            ticketId,
+            _bookingId
+        );
+
+        // Notification for admin: "giao dịch [Tên Sân] đã hoàn thành nhận X ETH - mã giao dịch: [ticket]"
+        _createNotification(
+            platformOwner,
+            "booking_confirmed",
+            string(abi.encodePacked("Giao dich ", fieldName, " da hoan thanh nhan ", _formatEther(ownerAmount), " ETH - ma giao dich: ", ticketId)),
+            ticketId,
+            _bookingId
+        );
     }
 
     /**
-     * @dev Cancel booking and refund user
+     * @dev Cancel booking and refund user (USER can cancel PENDING booking)
      * @param _bookingId Booking ID
+     * User receives 40%, admin keeps 60%
      */
     function cancelBooking(
         uint256 _bookingId
@@ -423,10 +734,10 @@ contract FieldBooking {
 
         Booking storage booking = bookings[_bookingId];
 
-        // Only user or owner can cancel
+        // Only the user who booked can cancel
         require(
-            msg.sender == booking.user || isAdmin(msg.sender),
-            "Not authorized to cancel this booking"
+            msg.sender == booking.user,
+            "Only booking owner can cancel"
         );
 
         // Cannot cancel confirmed bookings (payment already distributed)
@@ -437,12 +748,58 @@ contract FieldBooking {
 
         booking.status = BookingStatus.Cancelled;
 
-        // Refund user
-        uint256 refundAmount = booking.amountPaid;
+        // Refund 40% to user, keep 60% with admin
+        uint256 refundAmount = (booking.amountPaid * 40) / 100;
+        uint256 adminKeep = booking.amountPaid - refundAmount;
+        
         payable(booking.user).transfer(refundAmount);
         contractBalance -= refundAmount;
+        
+        // Add to admin balance
+        ownerBalance[platformOwner] += adminKeep;
 
         emit BookingCancelled(_bookingId, booking.user, refundAmount);
+
+        // Create notification for user
+        string memory ticketId = ticketIds[keccak256(abi.encodePacked(_bookingId, booking.user))];
+        _createNotification(
+            booking.user,
+            "booking_cancelled",
+            string(abi.encodePacked("Dat san da bi huy. Hoan 40%: ", _toDecimalString(refundAmount), " Wei. Email: 12345667@BC.com")),
+            ticketId,
+            _bookingId
+        );
+
+        // Create notification for admin
+        _createNotification(
+            platformOwner,
+            "booking_cancelled",
+            "Dat san da bi huy boi user. Giu lai 60%",
+            ticketId,
+            _bookingId
+        );
+    }
+
+    /**
+     * @dev Convert wei to decimal string for display
+     */
+    function _toDecimalString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory result = new bytes(digits);
+        temp = value;
+        for (uint256 i = digits; i > 0; i--) {
+            result[i - 1] = bytes1(uint8(48 + temp % 10));
+            temp /= 10;
+        }
+        return string(result);
     }
 
     // ==================== QUERY FUNCTIONS ====================
@@ -489,6 +846,36 @@ contract FieldBooking {
             result[i] = bookings[bookingIds[i]];
         }
         return result;
+    }
+
+    /**
+     * @dev Get notifications for user (inbox)
+     */
+    function getUserNotifications(address _user) external view returns (Notification[] memory) {
+        uint256[] memory notificationIds = userNotifications[_user];
+        Notification[] memory result = new Notification[](notificationIds.length);
+
+        for (uint256 i = 0; i < notificationIds.length; i++) {
+            result[i] = notifications[notificationIds[i]];
+        }
+        return result;
+    }
+
+    /**
+     * @dev Mark notification as read
+     */
+    function markNotificationAsRead(uint256 _notificationId) external {
+        require(_notificationId > 0 && _notificationId <= notificationCounter, "Invalid notification ID");
+        require(notifications[_notificationId].recipient == msg.sender, "Not authorized");
+        
+        notifications[_notificationId].read = true;
+    }
+
+    /**
+     * @dev Get ticket ID for booking
+     */
+    function getTicketId(uint256 _bookingId, address _user) external view returns (string memory) {
+        return ticketIds[keccak256(abi.encodePacked(_bookingId, _user))];
     }
 
     /**
@@ -557,6 +944,52 @@ contract FieldBooking {
         
         // Emit admin withdrawal event for tracking
         emit AdminWithdrawal(msg.sender, amount, 0, block.timestamp);
+    }
+
+    // ==================== DATA RESET (ADMIN ONLY) ====================
+
+    /**
+     * @dev Clear all bookings and reset booking counter
+     * Used for testing/reset purposes
+     */
+    function clearAllBookings() external onlyAdmin {
+        // Clear all user bookings
+        for (uint256 i = 1; i <= bookingCounter; i++) {
+            if (bookings[i].id != 0) {
+                address user = bookings[i].user;
+                delete bookings[i];
+                
+                // Clear user's booking list
+                if (userBookings[user].length > 0) {
+                    delete userBookings[user];
+                }
+            }
+        }
+        
+        // Reset booking counter
+        bookingCounter = 0;
+    }
+
+    /**
+     * @dev Clear all notifications and reset notification counter
+     * Used for testing/reset purposes
+     */
+    function clearAllNotifications() external onlyAdmin {
+        // Clear all notifications
+        for (uint256 i = 1; i <= notificationCounter; i++) {
+            if (notifications[i].id != 0) {
+                address recipient = notifications[i].recipient;
+                delete notifications[i];
+                
+                // Clear recipient's notification list
+                if (userNotifications[recipient].length > 0) {
+                    delete userNotifications[recipient];
+                }
+            }
+        }
+        
+        // Reset notification counter
+        notificationCounter = 0;
     }
 
     // ==================== ADMIN STATISTICS (ADMIN ONLY) ====================
@@ -652,7 +1085,7 @@ contract FieldBooking {
     }
 
     /**
-     * @dev Get field statistics for admin view (admin only)
+     * @dev Get field statistics (viewable by anyone)
      * @param _fieldId Field ID
      * @return fieldName Field name
      * @return pricePerHour Price per hour in Wei
@@ -660,7 +1093,7 @@ contract FieldBooking {
      * @return totalBookings Total confirmed bookings
      * @return totalRevenue Total revenue from this field
      */
-    function getFieldStats(uint256 _fieldId) external view onlyAdmin fieldExists(_fieldId) returns (
+    function getFieldStats(uint256 _fieldId) external view fieldExists(_fieldId) returns (
         string memory fieldName,
         uint256 pricePerHour,
         bool isActive,

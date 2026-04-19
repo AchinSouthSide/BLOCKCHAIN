@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
+import WheelOfFortune from './WheelOfFortune';
 import '../styles/FieldList.css';
 
 function FieldList({ contract }) {
@@ -13,6 +14,7 @@ function FieldList({ contract }) {
     startHour: '09',
     endHour: '11'
   });
+  const [showWheel, setShowWheel] = useState(false);
 
   const fetchFields = useCallback(async () => {
     try {
@@ -94,6 +96,10 @@ function FieldList({ contract }) {
         `Bạn đã thanh toán: ${paidEth} ETH (chưa tính phí gas).\n` +
         `Trạng thái: Chờ admin xác nhận.`
       );
+      
+      // Show wheel of fortune after successful booking
+      setShowWheel(true);
+      
       setSelectedField(null);
       fetchFields();
     } catch (error) {
@@ -133,6 +139,17 @@ function FieldList({ contract }) {
                 <h3>🏟️ {field.name}</h3>
                 <span className="price">{field.pricePerHour} ETH/giờ</span>
               </div>
+              {(field.time || field.location) && (
+                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
+                  {field.time && <div>🕒 {field.time}</div>}
+                  {field.location && <div>📍 {field.location}</div>}
+                </div>
+              )}
+              {field.description && (
+                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
+                  📝 {field.description}
+                </div>
+              )}
               <button 
                 className="book-btn"
                 onClick={() => setSelectedField(field)}
@@ -149,6 +166,13 @@ function FieldList({ contract }) {
         <div className="booking-modal-overlay" onClick={() => setSelectedField(null)}>
           <div className="booking-modal" onClick={e => e.stopPropagation()}>
             <h2>Đặt sân: {selectedField.name}</h2>
+            {(selectedField.time || selectedField.location || selectedField.description) && (
+              <div style={{ marginTop: 6, marginBottom: 8, fontSize: 13, opacity: 0.9 }}>
+                {selectedField.time && <div>🕒 {selectedField.time}</div>}
+                {selectedField.location && <div>📍 {selectedField.location}</div>}
+                {selectedField.description && <div>📝 {selectedField.description}</div>}
+              </div>
+            )}
             <div className="booking-form">
               <div className="form-group">
                 <label>Giờ bắt đầu</label>
@@ -178,6 +202,9 @@ function FieldList({ contract }) {
           </div>
         </div>
       )}
+
+      {/* Wheel of Fortune */}
+      <WheelOfFortune isOpen={showWheel} onClose={() => setShowWheel(false)} />
     </div>
   );
 }

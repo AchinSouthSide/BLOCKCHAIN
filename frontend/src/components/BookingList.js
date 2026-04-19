@@ -5,14 +5,19 @@ import '../styles/BookingList.css';
 function BookingList({ contract, userAddress }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       const bookingsData = await ContractService.getUserBookings(contract, userAddress);
       setBookings(bookingsData);
     } catch (error) {
-      alert('Lỗi tải danh sách đặt sân: ' + error.message);
+      const errorMsg = 'Lỗi tải danh sách đặt sân: ' + (error?.message || error);
+      console.error('[BookingList]', errorMsg);
+      setError(errorMsg);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -49,6 +54,12 @@ function BookingList({ contract, userAddress }) {
   return (
     <div className="booking-list-container">
       <h2>📅 Các đặt sân của bạn ({bookings.length})</h2>
+
+      {error && (
+        <div style={{ background: '#ffe0e0', border: '2px solid #ff6b6b', color: '#dc3545', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div className="no-bookings">Bạn chưa có đặt sân nào</div>

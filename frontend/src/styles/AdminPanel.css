@@ -308,6 +308,17 @@
   cursor: not-allowed;
 }
 
+.btn-delete {
+  background: #f8d7da;
+  color: #721c24;
+  border: 2px solid #dc3545;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: #dc3545;
+  color: white;
+}
+
 .btn-withdraw {
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: white;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import ContractService from '../services/ContractService.js';
+import Inbox from './Inbox.js';
 import '../styles/AdminPanel.css';
 
 /**
@@ -22,11 +23,26 @@ function AdminPanel({ contract, provider, address }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [platformOwner, setPlatformOwner] = useState(null);
+  const [adminCheckLoading, setAdminCheckLoading] = useState(false);
 
   // Form state for creating fields
   const [newFieldForm, setNewFieldForm] = useState({
     name: '',
     pricePerHour: '',
+    time: '',
+    description: '',
+    location: '',
+  });
+
+  // Form state for updating full field details (V2)
+  const [updateFieldFormV2, setUpdateFieldFormV2] = useState({
+    fieldId: '',
+    name: '',
+    pricePerHour: '',
+    time: '',
+    description: '',
+    location: '',
   });
 
   // Form state for updating field price
@@ -40,45 +56,49 @@ function AdminPanel({ contract, provider, address }) {
   // ==================== ADMIN VERIFICATION ====================
 
   /**
-   * Verify current user is admin (platformOwner OR delegated admin)
+   * Verify admin access on-chain.
+   * NOTE: Some read methods are also restricted by `onlyAdmin`, so we must not assume admin.
    */
   useEffect(() => {
+    let cancelled = false;
+
     const verifyAdmin = async () => {
+      if (!contract || !address) {
+        setIsAdmin(false);
+        setPlatformOwner(null);
+        setAdminCheckLoading(false);
+        return;
+      }
+
       try {
-        if (contract && address) {
-          let isAdminUser = false;
+        setAdminCheckLoading(true);
+        setError(null);
 
-          if (typeof contract.isAdmin === 'function') {
-            try {
-              isAdminUser = await contract.isAdmin(address);
-            } catch (e) {
-              const platformOwner = await contract.platformOwner();
-              isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
-            }
-          } else if (typeof contract.admins === 'function') {
-            try {
-              isAdminUser = await contract.admins(address);
-            } catch (e) {
-              const platformOwner = await contract.platformOwner();
-              isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
-            }
-          } else {
-            const platformOwner = await contract.platformOwner();
-            isAdminUser = address.toLowerCase() === platformOwner.toLowerCase();
-          }
+        const ownerPromise = typeof contract.platformOwner === 'function'
+          ? contract.platformOwner()
+          : Promise.resolve(null);
 
-          setIsAdmin(isAdminUser);
-          
-          if (!isAdminUser) {
-            setError('❌ Bạn không có quyền Admin. Chỉ platformOwner hoặc ví được cấp quyền Admin mới truy cập được.');
-          }
-        }
+        const isAdminPromise = typeof contract.isAdmin === 'function'
+          ? contract.isAdmin(address)
+          : Promise.resolve(false);
+
+        const [owner, isAdminFlag] = await Promise.all([ownerPromise, isAdminPromise]);
+        if (cancelled) return;
+        setPlatformOwner(owner);
+        setIsAdmin(Boolean(isAdminFlag));
       } catch (err) {
-        console.error('Admin verification error:', err);
+        if (cancelled) return;
+        console.error('[AdminPanel] verifyAdmin error:', err);
+        setPlatformOwner(null);
+        setIsAdmin(false);
+        setError('Không thể xác thực quyền Admin. Hãy kiểm tra đúng network/contract address và refresh lại.');
+      } finally {
+        if (!cancelled) setAdminCheckLoading(false);
       }
     };
 
     verifyAdmin();
+    return () => { cancelled = true; };
   }, [contract, address]);
 
   // ==================== DATA LOADING ====================
@@ -325,11 +345,18 @@ function AdminPanel({ contract, provider, address }) {
     try {
       setLoading(true);
       const priceInWei = ethers.parseEther(newFieldForm.pricePerHour);
-      await ContractService.createField(contract, newFieldForm.name, priceInWei);
+      await ContractService.createFieldV2(
+        contract,
+        newFieldForm.name,
+        priceInWei,
+        newFieldForm.time || '',
+        newFieldForm.description || '',
+        newFieldForm.location || ''
+      );
       
       const notification = `✅ Sân "${newFieldForm.name}" đã được tạo thành công`;
       setAdminNotifications(prev => [...prev, notification]);
-      setNewFieldForm({ name: '', pricePerHour: '' });
+      setNewFieldForm({ name: '', pricePerHour: '', time: '', description: '', location: '' });
       
       // Reload fields
       await loadFieldsWithStats();
@@ -338,6 +365,43 @@ function AdminPanel({ contract, provider, address }) {
     } catch (err) {
       console.error('Error creating field:', err);
       setError('Lỗi tạo sân: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateFieldV2 = async (e) => {
+    e.preventDefault();
+    if (!contract || !updateFieldFormV2.fieldId || !updateFieldFormV2.name || !updateFieldFormV2.pricePerHour) {
+      setError('Vui lòng chọn sân và nhập Tên + Giá');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const priceInWei = ethers.parseEther(updateFieldFormV2.pricePerHour);
+      await ContractService.updateFieldV2(
+        contract,
+        updateFieldFormV2.fieldId,
+        updateFieldFormV2.name,
+        priceInWei,
+        updateFieldFormV2.time || '',
+        updateFieldFormV2.description || '',
+        updateFieldFormV2.location || ''
+      );
+
+      setAdminNotifications(prev => [
+        ...prev,
+        `✏️ Cập nhật sân #${updateFieldFormV2.fieldId}: ${updateFieldFormV2.name}`
+      ].slice(-5));
+
+      setUpdateFieldFormV2({ fieldId: '', name: '', pricePerHour: '', time: '', description: '', location: '' });
+      await loadFieldsWithStats();
+      await loadAdminSummary();
+      setError(null);
+    } catch (err) {
+      console.error('Error updating field (V2):', err);
+      setError('Lỗi cập nhật sân (V2): ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -423,27 +487,73 @@ function AdminPanel({ contract, provider, address }) {
     }
   };
 
-  // "Xóa" theo hướng an toàn: disable field (không xóa record on-chain để không ảnh hưởng booking history)
-  const handleDeleteFieldSafe = async (fieldId) => {
+  /**
+   * Delete field permanently - sends notifications to users with bookings
+   */
+  const handleDeleteField = async (fieldId) => {
     const current = allFields.find(f => Number(f.id) === Number(fieldId));
     if (!current) return;
-    if (!window.confirm(`Xóa sân #${fieldId} (${current.name})? (Thực chất là TẮT sân để không ảnh hưởng booking)`)) {
+    
+    if (!window.confirm(`🗑️ Hủy sân #${fieldId} (${current.name}) hoàn toàn?\n\nUser có booking sẽ nhận thông báo!\n\nĐiều này không thể hoàn tác.`)) {
       return;
     }
 
     try {
       setLoading(true);
-      // If active -> toggle to inactive. If already inactive, do nothing.
-      if (current.isActive) {
-        await ContractService.toggleFieldStatus(contract, fieldId);
-      }
-      setAdminNotifications(prev => [...prev, `🗑️ Đã tắt (xóa) field #${fieldId}`].slice(-5));
+      await ContractService.deleteField(contract, fieldId);
+      setAdminNotifications(prev => [...prev, `🗑️ Đã hủy sân #${fieldId} - thông báo gửi cho user`].slice(-5));
       await loadFieldsWithStats();
       await loadAdminSummary();
       setError(null);
     } catch (err) {
-      console.error('Error disabling field:', err);
-      setError('Lỗi xóa/tắt sân: ' + err.message);
+      console.error('Error deleting field:', err);
+      setError('Lỗi hủy sân: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  /**
+   * Clear all bookings (testing/reset)
+   */
+  const handleClearAllBookings = async () => {
+    if (!window.confirm('⚠️ Xóa TẤT CẢ đặt sân?\n\nĐiều này không thể hoàn tác!')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ContractService.clearAllBookings(contract);
+      setAdminNotifications(prev => [...prev, '🗑️ Đã xóa tất cả đặt sân'].slice(-5));
+      await loadFieldsWithStats();
+      await loadAllBookings();
+      await loadAdminSummary();
+      setError(null);
+    } catch (err) {
+      console.error('Error clearing bookings:', err);
+      setError('Lỗi xóa đặt sân: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Clear all notifications (testing/reset)
+   */
+  const handleClearAllNotifications = async () => {
+    if (!window.confirm('⚠️ Xóa TẤT CẢ thông báo/hộp thư?\n\nĐiều này không thể hoàn tác!')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ContractService.clearAllNotifications(contract);
+      setAdminNotifications(prev => [...prev, '🗑️ Đã xóa tất cả thông báo'].slice(-5));
+      setError(null);
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+      setError('Lỗi xóa thông báo: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -550,11 +660,24 @@ function AdminPanel({ contract, provider, address }) {
 
   // ==================== UI RENDERING ====================
 
+  if (adminCheckLoading) {
+    return (
+      <div className="admin-panel">
+        <div className="loading">⏳ Đang kiểm tra quyền Admin...</div>
+      </div>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <div className="admin-panel">
         <div className="error-message">
-          ❌ Bạn không có quyền truy cập khu vực Admin. Chỉ ví chủ hợp đồng (platformOwner) có thể sử dụng.
+          ❌ Ví hiện tại không phải Admin theo smart contract.
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9, lineHeight: 1.4 }}>
+            <div><strong>Ví đang kết nối:</strong> {address}</div>
+            {platformOwner && <div><strong>Admin on-chain (platformOwner):</strong> {platformOwner}</div>}
+            {contract?.target && <div><strong>Contract:</strong> {contract.target}</div>}
+          </div>
         </div>
       </div>
     );
@@ -564,7 +687,12 @@ function AdminPanel({ contract, provider, address }) {
     <div className="admin-panel">
       <div className="admin-header">
         <h1>👨‍💼 Bảng điều khiển Admin</h1>
-        <p>Ví Admin (platformOwner): {address?.substring(0, 6)}...{address?.substring(38)}</p>
+        <p>Ví Admin: {address?.substring(0, 6)}...{address?.substring(38)}</p>
+        {contract?.target && (
+          <p style={{ marginTop: 6, fontSize: 12, opacity: 0.9 }}>
+            Contract: {contract.target.substring(0, 10)}...{contract.target.substring(contract.target.length - 8)}
+          </p>
+        )}
       </div>
 
       {/* Error Display */}
@@ -605,6 +733,12 @@ function AdminPanel({ contract, provider, address }) {
         >
           💰 Tài chính
         </button>
+        <button
+          className={`tab-button ${activeTab === 'inbox' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inbox')}
+        >
+          📬 Hộp thư
+        </button>
       </div>
 
       {/* Loading Indicator */}
@@ -618,6 +752,18 @@ function AdminPanel({ contract, provider, address }) {
               <h3>Tổng số sân</h3>
               <p className="stat-value">{adminSummary.totalFields}</p>
             </div>
+            <div className="stat-card active-highlight">
+              <h3>🟢 Sân đang hoạt động</h3>
+              <p className="stat-value" style={{ color: '#27ae60' }}>
+                {fieldsWithStats.filter(f => f.isActive).length}
+              </p>
+            </div>
+            <div className="stat-card">
+              <h3>🔴 Sân đang tắt</h3>
+              <p className="stat-value" style={{ color: '#e74c3c' }}>
+                {fieldsWithStats.filter(f => !f.isActive).length}
+              </p>
+            </div>
             <div className="stat-card">
               <h3>Tổng đặt sân (đã xác nhận)</h3>
               <p className="stat-value">{adminSummary.totalBookings}</p>
@@ -626,9 +772,11 @@ function AdminPanel({ contract, provider, address }) {
               <h3>Tổng doanh thu (tất cả thời gian)</h3>
               <p className="stat-value">{parseFloat(adminSummary.totalRevenue).toFixed(4)} ETH</p>
             </div>
-            <div className="stat-card">
-              <h3>Số dư có thể rút</h3>
-              <p className="stat-value">{parseFloat(adminSummary.adminBalance).toFixed(4)} ETH</p>
+            <div className="stat-card revenue-highlight">
+              <h3>💰 Thu nhập hiện tại</h3>
+              <p className="stat-value" style={{ color: '#f39c12', fontSize: '20px', fontWeight: 'bold' }}>
+                {parseFloat(adminSummary.adminBalance).toFixed(4)} ETH
+              </p>
             </div>
             <div className="stat-card">
               <h3>Tổng số dư trong contract</h3>
@@ -666,6 +814,45 @@ function AdminPanel({ contract, provider, address }) {
               </table>
             </div>
           )}
+
+          {/* Clear Data Section */}
+          <div style={{ marginTop: 30, padding: 20, backgroundColor: '#fff3cd', borderRadius: 8, border: '1px solid #ffc107' }}>
+            <h3 style={{ color: '#856404', marginTop: 0 }}>⚠️ Xóa dữ liệu (Testing Only)</h3>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button 
+                onClick={handleClearAllBookings}
+                disabled={loading}
+                style={{
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 5,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                  fontWeight: 600
+                }}
+              >
+                🗑️ Xóa Tất Cả Đặt Sân
+              </button>
+              <button 
+                onClick={handleClearAllNotifications}
+                disabled={loading}
+                style={{
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 5,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                  fontWeight: 600
+                }}
+              >
+                🗑️ Xóa Tất Cả Thông Báo
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -706,10 +893,124 @@ function AdminPanel({ contract, provider, address }) {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label>Thời gian hoạt động</label>
+                <input
+                  type="text"
+                  placeholder="VD: 09:00-22:00"
+                  value={newFieldForm.time}
+                  onChange={(e) => setNewFieldForm({...newFieldForm, time: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Mô tả</label>
+                <input
+                  type="text"
+                  placeholder="VD: Sân cỏ nhân tạo, có đèn"
+                  value={newFieldForm.description}
+                  onChange={(e) => setNewFieldForm({...newFieldForm, description: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Địa điểm</label>
+                <input
+                  type="text"
+                  placeholder="VD: 123 Nguyễn Trãi, Q1"
+                  value={newFieldForm.location}
+                  onChange={(e) => setNewFieldForm({...newFieldForm, location: e.target.value})}
+                />
+              </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 Tạo sân
               </button>
             </form>
+          </div>
+
+          {/* Update Field Details (V2) */}
+          <div className="form-section">
+            <h2>✏️ Cập nhật thông tin sân (V2)</h2>
+            {typeof contract?.updateFieldV2 !== 'function' ? (
+              <div className="error-message">
+                ⚠️ Contract hiện tại không hỗ trợ updateFieldV2.
+              </div>
+            ) : (
+              <form onSubmit={handleUpdateFieldV2} className="admin-form">
+                <div className="form-group">
+                  <label>Chọn sân</label>
+                  <select
+                    value={updateFieldFormV2.fieldId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selected = allFields.find(f => String(f.id) === String(selectedId));
+                      setUpdateFieldFormV2({
+                        fieldId: selectedId,
+                        name: selected?.name || '',
+                        pricePerHour: selected?.pricePerHour || '',
+                        time: selected?.time || '',
+                        description: selected?.description || '',
+                        location: selected?.location || '',
+                      });
+                    }}
+                    required
+                  >
+                    <option value="">Chọn sân...</option>
+                    {allFields.map(field => (
+                      <option key={field.id} value={field.id}>
+                        #{field.id} - {field.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Tên sân</label>
+                  <input
+                    type="text"
+                    value={updateFieldFormV2.name}
+                    onChange={(e) => setUpdateFieldFormV2({ ...updateFieldFormV2, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Giá mỗi giờ (ETH)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={updateFieldFormV2.pricePerHour}
+                    onChange={(e) => setUpdateFieldFormV2({ ...updateFieldFormV2, pricePerHour: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Thời gian hoạt động</label>
+                  <input
+                    type="text"
+                    placeholder="VD: 09:00-22:00"
+                    value={updateFieldFormV2.time}
+                    onChange={(e) => setUpdateFieldFormV2({ ...updateFieldFormV2, time: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Mô tả</label>
+                  <input
+                    type="text"
+                    value={updateFieldFormV2.description}
+                    onChange={(e) => setUpdateFieldFormV2({ ...updateFieldFormV2, description: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Địa điểm</label>
+                  <input
+                    type="text"
+                    value={updateFieldFormV2.location}
+                    onChange={(e) => setUpdateFieldFormV2({ ...updateFieldFormV2, location: e.target.value })}
+                  />
+                </div>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  Cập nhật (V2)
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Update Field Price */}
@@ -767,8 +1068,8 @@ function AdminPanel({ contract, provider, address }) {
                     <button className="btn-toggle" onClick={() => handleToggleFieldStatus(field.id)} disabled={loading}>
                       {field.isActive ? 'Tắt' : 'Bật'}
                     </button>
-                    <button className="btn-toggle" onClick={() => handleDeleteFieldSafe(field.id)} disabled={loading}>
-                      Xóa
+                    <button className="btn-toggle btn-delete" onClick={() => handleDeleteField(field.id)} disabled={loading}>
+                      🗑️ Hủy Hoàn Toàn
                     </button>
                   </div>
                 </div>
@@ -778,6 +1079,17 @@ function AdminPanel({ contract, provider, address }) {
                     <div><strong>Giá/giờ:</strong> {parseFloat(field.pricePerHour).toFixed(4)} ETH</div>
                     <div><strong>Đã đặt:</strong> {field.totalBookingsAll} (Pending: {field.pendingCount})</div>
                   </div>
+                  {(field.time || field.location || field.description) && (
+                    <div className="field-card-row">
+                      <div><strong>Thời gian:</strong> {field.time || '-'}</div>
+                      <div><strong>Địa điểm:</strong> {field.location || '-'}</div>
+                    </div>
+                  )}
+                  {field.description && (
+                    <div className="field-card-row">
+                      <div><strong>Mô tả:</strong> {field.description}</div>
+                    </div>
+                  )}
                   <div className="field-card-row">
                     <div><strong>Đặt sân đã xác nhận:</strong> {field.totalBookingsConfirmed}</div>
                     <div><strong>Doanh thu (confirmed):</strong> {parseFloat(field.totalRevenueConfirmed).toFixed(4)} ETH</div>
@@ -911,10 +1223,10 @@ function AdminPanel({ contract, provider, address }) {
       {activeTab === 'balance' && adminSummary && (
         <div className="tab-content">
           <div className="balance-section">
-            <h2>💰 Số dư tài khoản</h2>
+            <h2>💰 Thu nhập hiện tại</h2>
             <div className="balance-display">
               <div className="balance-info">
-                <p>Số dư có thể rút:</p>
+                <p>Số dư có thể rút về ví admin:</p>
                 <h3>{parseFloat(adminSummary.adminBalance).toFixed(4)} ETH</h3>
               </div>
               <button
@@ -941,6 +1253,13 @@ function AdminPanel({ contract, provider, address }) {
               </ul>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* INBOX TAB */}
+      {activeTab === 'inbox' && (
+        <div className="tab-content">
+          <Inbox contract={contract} userAddress={address} role="admin" />
         </div>
       )}
     </div>

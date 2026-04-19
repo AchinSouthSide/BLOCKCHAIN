@@ -43,14 +43,20 @@ function BookingManagement({ contract, userAddress }) {
   };
 
   const handleCancelBooking = async (bookingId) => {
-    if (window.confirm('Hủy đặt sân này?')) {
-      try {
-        await ContractService.cancelBooking(contract, bookingId);
-        alert('Đã hủy đặt sân! ✅');
-        loadBookings();
-      } catch (error) {
-        alert('Lỗi hủy đặt sân: ' + error.message);
+    const booking = bookings.find(b => b.id === bookingId);
+    
+    if (booking.status === 0) {
+      if (window.confirm('Hủy đặt sân này? Bạn sẽ nhận lại 40% số tiền.\nLưu ý: Chỉ có thể hủy khi chưa được admin duyệt.')) {
+        try {
+          await ContractService.cancelBooking(contract, bookingId);
+          alert('Đã hủy đặt sân! Bạn sẽ nhận lại 40% trong hộp thư. ✅');
+          loadBookings();
+        } catch (error) {
+          alert('Lỗi hủy đặt sân: ' + error.message);
+        }
       }
+    } else {
+      alert('❌ Không thể hủy! Đặt sân này đã được admin duyệt.');
     }
   };
 

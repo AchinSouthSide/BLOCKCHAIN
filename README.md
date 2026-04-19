@@ -391,6 +391,10 @@ Current implementation handles:
 ### Local (Recommended)
 ```bash
 npm run node              # Terminal 1
+# Windows CMD:
+#   set ADMIN_ADDRESS=0xYourAdminWalletAddress
+# PowerShell:
+#   $env:ADMIN_ADDRESS="0xYourAdminWalletAddress"
 npm run deploy:local      # Terminal 2
 npm run frontend:win      # Terminal 3
 ```
@@ -425,7 +429,7 @@ MIT License - Feel free to use this code
 ## ✅ Verification Checklist
 
 - [x] Smart contract fully functional
-- [x] 18/18 unit tests passing
+- [x] 20/20 unit tests passing
 - [x] Frontend components working
 - [x] MetaMask integration complete
 - [x] Hardhat local network configured

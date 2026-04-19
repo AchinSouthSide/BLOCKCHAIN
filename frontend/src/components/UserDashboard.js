@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import FieldList from './FieldList';
 import BookingList from './BookingList';
 import BookingManagement from './BookingManagement';
+import Inbox from './Inbox';
 import '../styles/Dashboard.css';
 
 function UserDashboard({ contract, user }) {
@@ -55,6 +56,13 @@ function UserDashboard({ contract, user }) {
         >
           📋 Quản lý
         </button>
+        <button 
+          className={`action-btn ${activeSection === 'inbox' ? 'active' : ''}`}
+          onClick={() => handleSectionChange('inbox')}
+          disabled={isLoading}
+        >
+          📬 Hộp thư
+        </button>
       </div>
 
       <div className="dashboard-sections">
@@ -74,6 +82,10 @@ function UserDashboard({ contract, user }) {
 
         {!isLoading && activeSection === 'manage' && (
           <BookingManagement contract={contract} userAddress={user.address} />
+        )}
+
+        {!isLoading && activeSection === 'inbox' && (
+          <Inbox contract={contract} userAddress={user.address} role="user" />
         )}
       </div>
     </div>

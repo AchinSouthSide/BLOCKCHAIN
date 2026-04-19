@@ -89,16 +89,7 @@ function WalletSelector({ onSelectWallet, onCancel }) {
 
       setAccountList(accountBalances);
       setLoading(false);
-      
-      // ✅ AUTO-SELECT Account #0 after short delay for UX
-      console.log('[WalletSelector] ✅ Auto-selecting Account #0 in 1.5s...');
-      setTimeout(() => {
-        const account0 = accountBalances[0];
-        if (account0) {
-          console.log('[WalletSelector] ✅ LOGIN: Using Account #0 -', account0.address);
-          onSelectWallet(account0.address);
-        }
-      }, 1500);
+      console.log('[WalletSelector] ✅ Accounts loaded. User must select manually.');
 
     } catch (err) {
       console.error('[WalletSelector] ❌ FATAL ERROR:', err);
@@ -126,7 +117,7 @@ function WalletSelector({ onSelectWallet, onCancel }) {
             <div className="loading-state">
               <div className="spinner"></div>
               <p className="loading-message">🔧 Setting up Hardhat Local...</p>
-              <p className="loading-message">📋 Auto-selecting Account #0...</p>
+              <p className="loading-message">📋 Loading your accounts...</p>
               <p style={{fontSize: '12px', color: '#666', marginTop: '20px'}}>{network}</p>
             </div>
           ) : error ? (

@@ -8,9 +8,9 @@ describe('FieldBooking Smart Contract (current API)', function () {
 
   const PRICE_PER_HOUR = ethers.parseEther('0.1');
 
-  async function deploy() {
+  async function deploy(adminAddress = null) {
     const Factory = await ethers.getContractFactory('FieldBooking');
-    const contract = await Factory.deploy();
+    const contract = await Factory.deploy(adminAddress || owner.address);
     return contract;
   }
 
@@ -22,6 +22,20 @@ describe('FieldBooking Smart Contract (current API)', function () {
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
     fieldBooking = await deploy();
+  });
+
+  it('Admin is provided at deploy (not forced to deployer)', async function () {
+    const contract = await deploy(user1.address);
+    expect(await contract.platformOwner()).to.equal(user1.address);
+    expect(await contract.admins(user1.address)).to.equal(true);
+    expect(await contract.admins(owner.address)).to.equal(false);
+
+    // Demo mode: any wallet can create fields
+    await expect(contract.createField('San A', PRICE_PER_HOUR))
+      .to.emit(contract, 'FieldCreated');
+
+    await expect(contract.connect(user1).createField('San B', PRICE_PER_HOUR))
+      .to.emit(contract, 'FieldCreated');
   });
 
   describe('Field Management (admin-only)', function () {
@@ -36,11 +50,15 @@ describe('FieldBooking Smart Contract (current API)', function () {
       expect(field.pricePerHour).to.equal(PRICE_PER_HOUR);
       expect(field.isActive).to.equal(true);
       expect(field.owner).to.equal(owner.address);
+      expect(field.time).to.equal('');
+      expect(field.description).to.equal('');
+      expect(field.location).to.equal('');
     });
 
-    it('Non-owner cannot create a field', async function () {
+    it('Any wallet can create a field (demo admin mode)', async function () {
       await expect(fieldBooking.connect(user1).createField('San A', PRICE_PER_HOUR))
-        .to.be.revertedWith('Only admin can call this');
+        .to.emit(fieldBooking, 'FieldCreated')
+        .withArgs(1, 'San A', PRICE_PER_HOUR, user1.address);
     });
 
     it('Create field validates name and price', async function () {
@@ -62,11 +80,13 @@ describe('FieldBooking Smart Contract (current API)', function () {
       expect(field.pricePerHour).to.equal(newPrice);
     });
 
-    it('Update price is owner-only and requires > 0', async function () {
+    it('Update price works in demo admin mode and requires > 0', async function () {
       await fieldBooking.createField('San A', PRICE_PER_HOUR);
 
-      await expect(fieldBooking.connect(user1).updateFieldPrice(1, PRICE_PER_HOUR))
-        .to.be.revertedWith('Only admin can call this');
+      const newPrice = ethers.parseEther('0.12');
+      await expect(fieldBooking.connect(user1).updateFieldPrice(1, newPrice))
+        .to.emit(fieldBooking, 'FieldUpdated')
+        .withArgs(1, newPrice);
 
       await expect(fieldBooking.updateFieldPrice(1, 0))
         .to.be.revertedWith('Price must be greater than 0');
@@ -88,6 +108,40 @@ describe('FieldBooking Smart Contract (current API)', function () {
 
       field = await fieldBooking.getField(1);
       expect(field.isActive).to.equal(true);
+    });
+
+    it('Admin can create and update field with V2 metadata', async function () {
+      await expect(
+        fieldBooking.createFieldV2(
+          'San V2',
+          PRICE_PER_HOUR,
+          '09:00-22:00',
+          'San co nhan tao',
+          '123 Nguyen Trai, Q1'
+        )
+      )
+        .to.emit(fieldBooking, 'FieldCreatedV2')
+        .withArgs(1, 'San V2', PRICE_PER_HOUR, owner.address, '09:00-22:00', 'San co nhan tao', '123 Nguyen Trai, Q1');
+
+      const field = await fieldBooking.getField(1);
+      expect(field.name).to.equal('San V2');
+      expect(field.time).to.equal('09:00-22:00');
+      expect(field.description).to.equal('San co nhan tao');
+      expect(field.location).to.equal('123 Nguyen Trai, Q1');
+
+      const newPrice = ethers.parseEther('0.15');
+      await expect(
+        fieldBooking.updateFieldV2(1, 'San V2 Updated', newPrice, '10:00-21:00', 'Mo ta moi', '456 Le Loi')
+      )
+        .to.emit(fieldBooking, 'FieldUpdatedV2')
+        .withArgs(1, 'San V2 Updated', newPrice, '10:00-21:00', 'Mo ta moi', '456 Le Loi');
+
+      const fieldAfter = await fieldBooking.getField(1);
+      expect(fieldAfter.name).to.equal('San V2 Updated');
+      expect(fieldAfter.pricePerHour).to.equal(newPrice);
+      expect(fieldAfter.time).to.equal('10:00-21:00');
+      expect(fieldAfter.description).to.equal('Mo ta moi');
+      expect(fieldAfter.location).to.equal('456 Le Loi');
     });
   });
 
@@ -184,7 +238,7 @@ describe('FieldBooking Smart Contract (current API)', function () {
       ).to.be.revertedWith('Time slot is already booked');
     });
 
-    it('Admin can confirm booking; non-admin cannot', async function () {
+    it('Any wallet can confirm booking (demo admin mode)', async function () {
       const now = await latestTimestamp();
       const start = now + 3600;
       const end = start + 2 * 3600;
@@ -193,9 +247,6 @@ describe('FieldBooking Smart Contract (current API)', function () {
       await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
 
       await expect(fieldBooking.connect(user2).confirmBooking(1))
-        .to.be.revertedWith('Only admin can call this');
-
-      await expect(fieldBooking.confirmBooking(1))
         .to.emit(fieldBooking, 'BookingConfirmed');
 
       const booking = await fieldBooking.bookings(1);
@@ -210,9 +261,12 @@ describe('FieldBooking Smart Contract (current API)', function () {
 
       await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
 
+      // User gets 40% refund
+      const expectedRefund = (required * 40n) / 100n;
+
       await expect(fieldBooking.connect(user1).cancelBooking(1))
         .to.emit(fieldBooking, 'BookingCancelled')
-        .withArgs(1, user1.address, required);
+        .withArgs(1, user1.address, expectedRefund);
 
       const booking = await fieldBooking.bookings(1);
       expect(booking.status).to.equal(2); // Cancelled
@@ -236,27 +290,16 @@ describe('FieldBooking Smart Contract (current API)', function () {
         .to.be.revertedWith('Cannot cancel confirmed bookings');
     });
 
-    it('Owner can add an admin; delegated admin can manage', async function () {
-      await expect(fieldBooking.connect(user1).addAdmin(user2.address))
-        .to.be.revertedWith('Only owner can call this');
+    it('Other wallets cannot become admin', async function () {
+      await expect(fieldBooking.connect(user1).addAdmin(user1.address))
+        .to.be.revertedWith('Admin is fixed');
 
       await expect(fieldBooking.addAdmin(user2.address))
-        .to.emit(fieldBooking, 'AdminAdded')
-        .withArgs(user2.address);
+        .to.be.revertedWith('Admin is fixed');
 
-      const newPrice = ethers.parseEther('0.15');
-      await expect(fieldBooking.connect(user2).updateFieldPrice(1, newPrice))
-        .to.emit(fieldBooking, 'FieldUpdated')
-        .withArgs(1, newPrice);
-
-      const now = await latestTimestamp();
-      const start = now + 3600;
-      const end = start + 2 * 3600;
-      const required = newPrice * 2n;
-
-      await fieldBooking.connect(user1).bookField(1, start, end, { value: required });
-      await expect(fieldBooking.connect(user2).confirmBooking(1))
-        .to.emit(fieldBooking, 'BookingConfirmed');
+      // Mapping stays fixed, but demo-mode isAdmin returns true for everyone.
+      expect(await fieldBooking.admins(user2.address)).to.equal(false);
+      expect(await fieldBooking.isAdmin(user2.address)).to.equal(true);
     });
   });
 

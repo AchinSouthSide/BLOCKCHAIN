@@ -214,6 +214,29 @@ class ContractService {
   }
 
   /**
+   * Create new field with V2 metadata (Admin only)
+   * Backward compatible: if createFieldV2 is missing, falls back to createField.
+   */
+  static async createFieldV2(contract, name, pricePerHour, time = '', description = '', location = '') {
+    try {
+      console.log('[ContractService] createFieldV2()', { name, pricePerHour, time, description, location });
+
+      if (typeof contract?.createFieldV2 !== 'function') {
+        return await this.createField(contract, name, pricePerHour);
+      }
+
+      const tx = await contract.createFieldV2(name, pricePerHour, time, description, location);
+      const receipt = await tx.wait();
+
+      console.log('[ContractService] ✅ Field (V2) created successfully');
+      return receipt;
+    } catch (error) {
+      console.error('[ContractService] createFieldV2 error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update field price
    * @param {Contract} contract - Contract instance
    * @param {number} fieldId - Field ID
@@ -236,6 +259,26 @@ class ContractService {
   }
 
   /**
+   * Update full field details with V2 metadata (Admin only)
+   */
+  static async updateFieldV2(contract, fieldId, name, pricePerHour, time = '', description = '', location = '') {
+    try {
+      console.log('[ContractService] updateFieldV2()', { fieldId, name, pricePerHour, time, description, location });
+
+      this._requireMethod(contract, 'updateFieldV2');
+
+      const tx = await contract.updateFieldV2(fieldId, name, pricePerHour, time, description, location);
+      const receipt = await tx.wait();
+
+      console.log('[ContractService] ✅ Field (V2) updated');
+      return receipt;
+    } catch (error) {
+      console.error('[ContractService] updateFieldV2 error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Toggle field active status
    * @param {Contract} contract - Contract instance
    * @param {number} fieldId - Field ID
@@ -245,13 +288,47 @@ class ContractService {
     try {
       console.log('[ContractService] toggleFieldStatus()', { fieldId });
       
-      const tx = await contract.toggleFieldStatus(fieldId);
+      // Get current field state
+      const field = await contract.fields(fieldId);
+      
+      // Call appropriate function
+      let tx;
+      if (field.isActive) {
+        tx = await contract.deactivateField(fieldId);
+      } else {
+        tx = await contract.activateField(fieldId);
+      }
+      
       const receipt = await tx.wait();
       
       console.log('[ContractService] ✅ Field status toggled');
       return receipt;
     } catch (error) {
       console.error('[ContractService] toggleFieldStatus error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete field - Hủy sân hoàn toàn
+   * Sends notifications to all users with bookings
+   * @param {Contract} contract - Contract instance
+   * @param {number} fieldId - Field ID
+   * @returns {Object} Transaction receipt
+   */
+  static async deleteField(contract, fieldId) {
+    try {
+      console.log('[ContractService] deleteField()', { fieldId });
+      
+      this._requireMethod(contract, 'deleteField');
+      
+      const tx = await contract.deleteField(fieldId);
+      const receipt = await tx.wait();
+      
+      console.log('[ContractService] ✅ Field deleted');
+      return receipt;
+    } catch (error) {
+      console.error('[ContractService] deleteField error:', error);
       throw error;
     }
   }
@@ -278,6 +355,9 @@ class ContractService {
         isActive: field.isActive,
         owner: field.owner,
         createdAt: Number(field.createdAt),
+        time: field.time || '',
+        description: field.description || '',
+        location: field.location || '',
         ownerShort: field.owner ? `${field.owner.slice(0, 8)}...${field.owner.slice(-4)}` : 'Unknown'
       }));
       
@@ -307,6 +387,9 @@ class ContractService {
         isActive: field.isActive,
         owner: field.owner,
         createdAt: Number(field.createdAt),
+        time: field.time || '',
+        description: field.description || '',
+        location: field.location || '',
       };
     } catch (error) {
       console.error('[ContractService] getField error:', error);
@@ -354,6 +437,9 @@ class ContractService {
           pricePerHourWei: field.pricePerHour.toString(),
           isActive: field.isActive,
           owner: field.owner,
+          time: field.time || '',
+          description: field.description || '',
+          location: field.location || '',
           bookingCount,
           revenue: ethers.formatEther(totalRevenue),
           revenueWei: totalRevenue.toString(),
@@ -449,26 +535,41 @@ class ContractService {
     try {
       console.log('[ContractService] getUserBookings()', { userAddress });
       
+      this._requireMethod(contract, 'getUserBookings');
+      
       const bookings = await contract.getUserBookings(userAddress);
       
-      const parsedBookings = bookings.map(booking => ({
-        id: Number(booking.id),
-        fieldId: Number(booking.fieldId),
-        user: booking.user,
-        startTime: Number(booking.startTime),
-        endTime: Number(booking.endTime),
-        amountPaid: ethers.formatEther(booking.amountPaid),
-        amountPaidWei: booking.amountPaid.toString(),
-        status: Number(booking.status),
-        statusName: this.getBookingStatusName(Number(booking.status)),
-        createdAt: Number(booking.createdAt),
-      }));
+      if (!Array.isArray(bookings)) {
+        console.warn('[ContractService] getUserBookings returned non-array:', bookings);
+        return [];
+      }
+      
+      const parsedBookings = bookings.map(booking => {
+        try {
+          return {
+            id: Number(booking.id),
+            fieldId: Number(booking.fieldId),
+            user: booking.user,
+            startTime: Number(booking.startTime),
+            endTime: Number(booking.endTime),
+            amountPaid: ethers.formatEther(booking.amountPaid),
+            amountPaidWei: booking.amountPaid.toString(),
+            status: Number(booking.status),
+            statusName: this.getBookingStatusName(Number(booking.status)),
+            createdAt: Number(booking.createdAt),
+          };
+        } catch (parseError) {
+          console.warn('[ContractService] Failed to parse booking:', booking, parseError?.message);
+          return null;
+        }
+      }).filter(b => b !== null);
       
       console.log('[ContractService] ✅ Retrieved', parsedBookings.length, 'user bookings');
       return parsedBookings;
     } catch (error) {
-      console.error('[ContractService] getUserBookings error:', error);
-      throw error;
+      console.error('[ContractService] getUserBookings error:', error?.message || error);
+      // Return empty array instead of throwing to prevent UI crash
+      return [];
     }
   }
 
@@ -559,6 +660,48 @@ class ContractService {
       return receipt;
     } catch (error) {
       console.error('[ContractService] withdrawBalance error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear all bookings (admin only, testing purposes)
+   * @param {Contract} contract - Contract instance
+   * @returns {Object} Transaction receipt
+   */
+  static async clearAllBookings(contract) {
+    try {
+      console.log('[ContractService] clearAllBookings() called');
+      
+      this._requireMethod(contract, 'clearAllBookings');
+      const tx = await contract.clearAllBookings();
+      const receipt = await tx.wait();
+      
+      console.log('[ContractService] ✅ All bookings cleared');
+      return receipt;
+    } catch (error) {
+      console.error('[ContractService] clearAllBookings error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear all notifications (admin only, testing purposes)
+   * @param {Contract} contract - Contract instance
+   * @returns {Object} Transaction receipt
+   */
+  static async clearAllNotifications(contract) {
+    try {
+      console.log('[ContractService] clearAllNotifications() called');
+      
+      this._requireMethod(contract, 'clearAllNotifications');
+      const tx = await contract.clearAllNotifications();
+      const receipt = await tx.wait();
+      
+      console.log('[ContractService] ✅ All notifications cleared');
+      return receipt;
+    } catch (error) {
+      console.error('[ContractService] clearAllNotifications error:', error);
       throw error;
     }
   }
@@ -866,6 +1009,95 @@ class ContractService {
     } catch (error) {
       console.error('[ContractService] setupAdminEventListeners error:', error);
       throw error;
+    }
+  }
+
+  // ==================== NOTIFICATION SYSTEM ====================
+
+  /**
+   * Get user notifications (inbox)
+   * @param {Contract} contract - Contract instance
+   * @param {string} userAddress - User wallet address
+   * @returns {Array} Array of notifications
+   */
+  static async getUserNotifications(contract, userAddress) {
+    try {
+      console.log('[ContractService] getUserNotifications()', { userAddress });
+
+      this._requireMethod(contract, 'getUserNotifications');
+
+      const notifications = await contract.getUserNotifications(userAddress);
+
+      if (!Array.isArray(notifications)) {
+        console.warn('[ContractService] getUserNotifications returned non-array:', notifications);
+        return [];
+      }
+
+      const parsedNotifications = notifications.map(notif => {
+        try {
+          return {
+            id: Number(notif.id),
+            recipient: notif.recipient,
+            notificationType: notif.notificationType,
+            message: notif.message,
+            ticketId: notif.ticketId,
+            relatedBookingId: Number(notif.relatedBookingId),
+            createdAt: Number(notif.createdAt),
+            read: notif.read,
+          };
+        } catch (parseError) {
+          console.warn('[ContractService] Failed to parse notification:', notif, parseError?.message);
+          return null;
+        }
+      }).filter(n => n !== null);
+
+      console.log('[ContractService] ✅ Retrieved', parsedNotifications.length, 'notifications');
+      return parsedNotifications;
+    } catch (error) {
+      console.error('[ContractService] getUserNotifications error:', error?.message || error);
+      return [];
+    }
+  }
+
+  /**
+   * Mark notification as read
+   * @param {Contract} contract - Contract instance
+   * @param {number} notificationId - Notification ID
+   */
+  static async markNotificationAsRead(contract, notificationId) {
+    try {
+      console.log('[ContractService] markNotificationAsRead()', { notificationId });
+
+      this._requireMethod(contract, 'markNotificationAsRead');
+
+      const tx = await contract.markNotificationAsRead(notificationId);
+      await tx.wait();
+
+      console.log('[ContractService] ✅ Notification marked as read');
+    } catch (error) {
+      console.error('[ContractService] markNotificationAsRead error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get ticket ID for a booking
+   * @param {Contract} contract - Contract instance
+   * @param {number} bookingId - Booking ID
+   * @param {string} userAddress - User address
+   * @returns {string} Ticket ID
+   */
+  static async getTicketId(contract, bookingId, userAddress) {
+    try {
+      console.log('[ContractService] getTicketId()', { bookingId, userAddress });
+
+      this._requireMethod(contract, 'getTicketId');
+
+      const ticketId = await contract.getTicketId(bookingId, userAddress);
+      return ticketId;
+    } catch (error) {
+      console.error('[ContractService] getTicketId error:', error);
+      return '';
     }
   }
 }

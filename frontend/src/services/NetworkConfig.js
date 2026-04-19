@@ -8,7 +8,7 @@ const NETWORKS = {
   // ========== HARDHAT LOCAL NETWORK (RECOMMENDED) ==========
   31337: {
     name: 'Hardhat Local',
-    rpc: 'http://127.0.0.1:8545',
+    rpc: process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545',
     explorer: 'http://localhost',
     type: 'local',
     chainId: 31337,

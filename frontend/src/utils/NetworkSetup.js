@@ -4,7 +4,7 @@
  */
 
 export const HARDHAT_CHAIN_ID = 31337;
-export const HARDHAT_RPC = 'http://127.0.0.1:8545';
+export const HARDHAT_RPC = process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545';
 export const HARDHAT_CHAIN_ID_HEX = '0x7a69';
 
 /**

@@ -3,11 +3,13 @@
  * Comprehensive network setup with multiple attempts and fallback instructions
  */
 
+const HARDHAT_RPC = process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545';
+
 const HARDHAT_CONFIG = {
   chainId: '0x7a69',
   chainIdNum: 31337,
   chainName: 'Hardhat Local',
-  rpcUrls: ['http://127.0.0.1:8545'],
+  rpcUrls: [HARDHAT_RPC],
   nativeCurrency: {
     name: 'Ethereum',
     symbol: 'ETH',
@@ -143,7 +145,7 @@ function getManualAddSteps() {
     '3. Select "Networks" → "Add a network" → "Add a network manually"',
     '4. Fill in:',
     '   • Network name: Hardhat Local',
-    '   • RPC URL: http://127.0.0.1:8545',
+    `   • RPC URL: ${HARDHAT_RPC}`,
     '   • Chain ID: 31337',
     '   • Currency: ETH',
     '5. Click Save',

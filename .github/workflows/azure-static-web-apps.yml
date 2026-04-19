@@ -36,6 +36,7 @@ jobs:
         env:
           REACT_APP_NETWORK_ID: ${{ vars.REACT_APP_NETWORK_ID }}
           REACT_APP_CONTRACT_ADDRESS: ${{ vars.REACT_APP_CONTRACT_ADDRESS }}
+          REACT_APP_HARDHAT_RPC: ${{ vars.REACT_APP_HARDHAT_RPC }}
           REACT_APP_SEPOLIA_RPC: ${{ vars.REACT_APP_SEPOLIA_RPC }}
         run: |
           npm ci

@@ -56,8 +56,13 @@ function Inbox({ contract, userAddress, role }) {
       const deduped = Array.from(
         new Map(filtered.map(n => [n.id, n])).values()
       );
+      const sorted = deduped.sort((a, b) => {
+        const timeDiff = (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+        if (timeDiff !== 0) return timeDiff;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
       setHiddenNotificationIds(hiddenIds);
-      setNotifications(deduped);
+      setNotifications(sorted);
     } catch (err) {
       console.error('[Inbox] Error loading notifications:', err);
       setError('Lỗi tải hộp thư');

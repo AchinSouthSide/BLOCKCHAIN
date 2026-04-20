@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import ensureHardhatNetwork from '../utils/EnsureHardhatNetwork';
+import { ethereumRequest, formatMetaMaskError } from '../utils/ethereumRequest';
 import '../styles/WalletSelector.css';
 
 function WalletSelector({ onSelectWallet, onCancel }) {
@@ -47,9 +48,10 @@ function WalletSelector({ onSelectWallet, onCancel }) {
 
       // **STEP 2: Request accounts from MetaMask**
       console.log('[WalletSelector] 📋 Step 2/3: Requesting accounts...');
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      });
+      let accounts = await ethereumRequest({ method: 'eth_accounts' });
+      if (!accounts || accounts.length === 0) {
+        accounts = await ethereumRequest({ method: 'eth_requestAccounts' });
+      }
 
       if (!accounts || accounts.length === 0) {
         throw new Error('Không nhận được account từ MetaMask');
@@ -93,12 +95,11 @@ function WalletSelector({ onSelectWallet, onCancel }) {
 
     } catch (err) {
       console.error('[WalletSelector] ❌ FATAL ERROR:', err);
-      if (err.code === 4001) {
-        setError('❌ Bạn đã từ chối kết nối MetaMask');
-      } else if (err.code === 4002) {
+      const code = err?.code ?? err?.data?.originalError?.code;
+      if (code === 4002) {
         setError('❌ MetaMask không được kích hoạt. Vui lòng mở MetaMask và thử lại.');
       } else {
-        setError(err.message || 'Lỗi kết nối ví');
+        setError('❌ ' + formatMetaMaskError(err));
       }
       setLoading(false);
     }

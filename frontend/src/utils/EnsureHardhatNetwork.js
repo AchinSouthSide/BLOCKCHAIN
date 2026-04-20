@@ -3,6 +3,8 @@
  * Comprehensive network setup with multiple attempts and fallback instructions
  */
 
+import { ethereumRequest } from './ethereumRequest';
+
 const HARDHAT_RPC = process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545';
 
 const HARDHAT_CONFIG = {
@@ -95,7 +97,7 @@ export async function ensureHardhatNetwork() {
 async function attemptAddNetwork() {
   try {
     console.log('[EnsureHardhat] Calling wallet_addEthereumChain...');
-    const result = await window.ethereum.request({
+    const result = await ethereumRequest({
       method: 'wallet_addEthereumChain',
       params: [HARDHAT_CONFIG],
     });
@@ -118,7 +120,7 @@ async function attemptAddNetwork() {
 async function attemptSwitch() {
   try {
     console.log('[EnsureHardhat] Calling wallet_switchEthereumChain...');
-    const result = await window.ethereum.request({
+    const result = await ethereumRequest({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: HARDHAT_CONFIG.chainId }],
     });

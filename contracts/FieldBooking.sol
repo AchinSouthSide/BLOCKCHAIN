@@ -488,7 +488,7 @@ contract FieldBooking {
         
         // Create notification for admin
         _createNotification(
-            platformOwner,
+            fields[_fieldId].owner,
             "booking_waiting",
             string(abi.encodePacked("Co dat san moi: ", fieldName, " - ma giao dich: ", _toHexString(bookingCounter), " dang cho xac nhan")),
             "",
@@ -664,12 +664,14 @@ contract FieldBooking {
         Booking storage booking = bookings[_bookingId];
         booking.status = BookingStatus.Confirmed;
 
+        address adminRecipient = fields[booking.fieldId].owner;
+
         // Calculate and distribute fees
         uint256 ownerAmount = (booking.amountPaid * (100 - PLATFORM_FEE_PERCENT)) / 100;
         uint256 feeAmount = booking.amountPaid - ownerAmount;
 
-        // Add to owner balance
-        ownerBalance[platformOwner] += ownerAmount;
+        // Credit earnings to the field owner (admin)
+        ownerBalance[adminRecipient] += ownerAmount;
 
         // ==================== TRACK ADMIN STATISTICS ====================
         
@@ -711,7 +713,7 @@ contract FieldBooking {
 
         // Notification for admin: "giao dịch [Tên Sân] đã hoàn thành nhận X ETH - mã giao dịch: [ticket]"
         _createNotification(
-            platformOwner,
+            adminRecipient,
             "booking_confirmed",
             string(abi.encodePacked("Giao dich ", fieldName, " da hoan thanh nhan ", _formatEther(ownerAmount), " ETH - ma giao dich: ", ticketId)),
             ticketId,
@@ -756,7 +758,7 @@ contract FieldBooking {
         contractBalance -= refundAmount;
         
         // Add to admin balance
-        ownerBalance[platformOwner] += adminKeep;
+        ownerBalance[fields[booking.fieldId].owner] += adminKeep;
 
         emit BookingCancelled(_bookingId, booking.user, refundAmount);
 
@@ -772,7 +774,7 @@ contract FieldBooking {
 
         // Create notification for admin
         _createNotification(
-            platformOwner,
+            fields[booking.fieldId].owner,
             "booking_cancelled",
             "Dat san da bi huy boi user. Giu lai 60%",
             ticketId,
@@ -931,7 +933,7 @@ contract FieldBooking {
      * @dev Owner withdraws balance (admin only)
      * @notice Only admin can withdraw accumulated earnings
      */
-    function withdrawBalance() external onlyOwner {
+    function withdrawBalance() external onlyAdmin {
         uint256 amount = ownerBalance[msg.sender];
         require(amount > 0, "No balance to withdraw");
 
@@ -1079,7 +1081,7 @@ contract FieldBooking {
             activeFields,
             confirmedBookings,
             allTimeRevenue,
-            ownerBalance[platformOwner],
+            ownerBalance[msg.sender],
             contractBalance
         );
     }

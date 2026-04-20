@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/WalletConnect.css';
+import { ethereumRequest, formatMetaMaskError } from '../utils/ethereumRequest';
 
 function WalletConnect({ isConnected, userAddress, onConnect }) {
   const [loading, setLoading] = useState(false);
@@ -19,11 +20,11 @@ function WalletConnect({ isConnected, userAddress, onConnect }) {
       
       // Request permissions
       console.log('[WalletConnect] Requesting account access...');
-      const accounts = await window.ethereum.request({ 
-        method: 'eth_requestAccounts' 
+      const accounts = await ethereumRequest({
+        method: 'eth_requestAccounts'
       }).catch(err => {
-        console.error('[WalletConnect] User denied access:', err);
-        throw new Error('Bạn đã từ chối cấp quyền. Vui lòng cấp quyền cho MetaMask.');
+        console.error('[WalletConnect] MetaMask request failed:', err);
+        throw new Error(formatMetaMaskError(err));
       });
       
       console.log('[WalletConnect] Accounts received:', accounts);

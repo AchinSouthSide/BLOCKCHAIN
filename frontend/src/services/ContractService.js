@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { FIELD_BOOKING_ABI } from './abi/index.js';
 import NetworkConfig from './NetworkConfig.js';
+import { ethereumRequest, formatMetaMaskError } from '../utils/ethereumRequest';
 
 /**
  * Production-grade Contract Service
@@ -79,9 +80,10 @@ class ContractService {
       // Get or request account
       let accountToUse = selectedAddress;
       if (!accountToUse) {
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_requestAccounts' 
-        });
+        let accounts = await ethereumRequest({ method: 'eth_accounts' });
+        if (!accounts || accounts.length === 0) {
+          accounts = await ethereumRequest({ method: 'eth_requestAccounts' });
+        }
         if (!accounts || accounts.length === 0) {
           throw new Error('Không nhận được account từ MetaMask');
         }
@@ -114,6 +116,10 @@ class ContractService {
       };
     } catch (error) {
       console.error('[ContractService] Connection error:', error);
+      // Normalize common MetaMask errors (especially -32002 pending request)
+      if (error?.code || error?.data?.originalError?.code) {
+        throw new Error(formatMetaMaskError(error));
+      }
       throw error;
     }
   }

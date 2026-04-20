@@ -45,11 +45,11 @@ try {
 }
 
 if (-not $rpcListening) {
-  Write-Host "Starting Hardhat node on http://$rpcHost:$rpcPort ..." -ForegroundColor Yellow
+  Write-Host "Starting Hardhat node on http://${rpcHost}:$rpcPort ..." -ForegroundColor Yellow
   $hardhatNodeCmd = "cd '$repoRoot'; .\\node_modules\\.bin\\hardhat.cmd node --hostname $rpcHost --port $rpcPort"
   Start-Process -FilePath 'powershell' -ArgumentList @('-NoExit','-Command', $hardhatNodeCmd) | Out-Null
 } else {
-  Write-Host "Hardhat RPC already listening on http://$rpcHost:$rpcPort" -ForegroundColor Green
+  Write-Host "Hardhat RPC already listening on http://${rpcHost}:$rpcPort" -ForegroundColor Green
 }
 
 # --- Deploy contract to localhost (fresh chain after reboot) ---
@@ -93,18 +93,30 @@ if (-not $cloudflared) {
   throw "cloudflared not found. Install Cloudflare Tunnel (cloudflared) and ensure it's in PATH."
 }
 
-$logPath = Join-Path $env:TEMP 'fieldbooking_cloudflared.log'
-if (Test-Path $logPath) { Remove-Item $logPath -Force }
+$runId = [Guid]::NewGuid().ToString('N')
+$logPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.log")
+$errPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.err.log")
+New-Item -Path $logPath -ItemType File -Force | Out-Null
+New-Item -Path $errPath -ItemType File -Force | Out-Null
 
-Write-Host "Starting Cloudflare quick tunnel for http://$rpcHost:$rpcPort ..." -ForegroundColor Yellow
-$cfProc = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url',"http://$rpcHost:$rpcPort",'--no-autoupdate') -RedirectStandardOutput $logPath -RedirectStandardError $logPath -PassThru
+Write-Host "Starting Cloudflare quick tunnel for http://${rpcHost}:$rpcPort ..." -ForegroundColor Yellow
+$cfProc = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url',"http://${rpcHost}:$rpcPort",'--no-autoupdate') -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
 
 Write-Host "Waiting for tunnel URL..." -ForegroundColor Yellow
 $tunnelUrl = $null
-foreach ($line in Get-Content -Path $logPath -Wait) {
-  if ($line -match 'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') {
-    $tunnelUrl = $matches[0]
-    break
+
+# First scan existing content (cloudflared may print the URL immediately).
+foreach ($line in (Get-Content -Path @($logPath, $errPath) -ErrorAction SilentlyContinue)) {
+  if ($line -match 'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') { $tunnelUrl = $matches[0]; break }
+}
+
+# If not found yet, tail both logs and wait for it.
+if (-not $tunnelUrl) {
+  foreach ($line in Get-Content -Path @($logPath, $errPath) -Wait) {
+    if ($line -match 'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') {
+      $tunnelUrl = $matches[0]
+      break
+    }
   }
 }
 

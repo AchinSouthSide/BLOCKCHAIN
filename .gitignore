@@ -44,6 +44,11 @@ logs/
 # Deployment info
 deployment.json
 
+# Demo wallet exports (contain private keys)
+demo-wallets.json
+demo-wallets.md
+DEMO_HARDHAT_ACCOUNTS.md
+
 # Backups (avoid committing env snapshots)
 **/frontend.env
 **/frontend.env.local

@@ -521,9 +521,14 @@ class ContractService {
    */
   static async cancelBooking(contract, bookingId) {
     try {
-      console.log('[ContractService] cancelBooking()', { bookingId });
-      
-      const tx = await contract.cancelBooking(bookingId);
+      const normalizedId = Number(bookingId);
+      if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+        throw new Error('Booking ID không hợp lệ');
+      }
+
+      console.log('[ContractService] cancelBooking()', { bookingId: normalizedId });
+
+      const tx = await contract.cancelBooking(normalizedId);
       const receipt = await tx.wait();
       
       console.log('[ContractService] ✅ Booking cancelled');
@@ -555,16 +560,24 @@ class ContractService {
       
       const parsedBookings = bookings.map(booking => {
         try {
+          const id = Number(booking.id);
+          const fieldId = Number(booking.fieldId);
+          const user = booking.user;
+          if (!Number.isFinite(id) || id <= 0) return null;
+          if (!Number.isFinite(fieldId) || fieldId <= 0) return null;
+          if (!user || String(user).toLowerCase() === '0x0000000000000000000000000000000000000000') return null;
+
+          const status = Number(booking.status);
           return {
-            id: Number(booking.id),
-            fieldId: Number(booking.fieldId),
-            user: booking.user,
+            id,
+            fieldId,
+            user,
             startTime: Number(booking.startTime),
             endTime: Number(booking.endTime),
             amountPaid: ethers.formatEther(booking.amountPaid),
             amountPaidWei: booking.amountPaid.toString(),
-            status: Number(booking.status),
-            statusName: this.getBookingStatusName(Number(booking.status)),
+            status,
+            statusName: this.getBookingStatusName(status),
             createdAt: Number(booking.createdAt),
           };
         } catch (parseError) {
@@ -594,19 +607,30 @@ class ContractService {
       
       const bookings = await contract.getFieldBookings(fieldId);
       
-      const parsedBookings = bookings.map(booking => ({
-        id: Number(booking.id),
-        fieldId: Number(booking.fieldId),
-        user: booking.user,
-        userShort: `${booking.user.slice(0, 8)}...${booking.user.slice(-4)}`,
-        startTime: Number(booking.startTime),
-        endTime: Number(booking.endTime),
-        amountPaid: ethers.formatEther(booking.amountPaid),
-        amountPaidWei: booking.amountPaid.toString(),
-        status: Number(booking.status),
-        statusName: this.getBookingStatusName(Number(booking.status)),
-        createdAt: Number(booking.createdAt),
-      }));
+      const parsedBookings = (bookings || []).map((booking) => {
+        const id = Number(booking?.id);
+        const parsedFieldId = Number(booking?.fieldId);
+        const user = booking?.user ? String(booking.user) : '';
+        if (!Number.isFinite(id) || id <= 0) return null;
+        if (!Number.isFinite(parsedFieldId) || parsedFieldId <= 0) return null;
+        if (!user || user.toLowerCase() === '0x0000000000000000000000000000000000000000') return null;
+
+        const status = Number(booking.status);
+        const userShort = user.length >= 12 ? `${user.slice(0, 8)}...${user.slice(-4)}` : user;
+        return {
+          id,
+          fieldId: parsedFieldId,
+          user,
+          userShort,
+          startTime: Number(booking.startTime),
+          endTime: Number(booking.endTime),
+          amountPaid: ethers.formatEther(booking.amountPaid),
+          amountPaidWei: booking.amountPaid.toString(),
+          status,
+          statusName: this.getBookingStatusName(status),
+          createdAt: Number(booking.createdAt),
+        };
+      }).filter(Boolean);
       
       console.log('[ContractService] ✅ Retrieved', parsedBookings.length, 'field bookings');
       return parsedBookings;

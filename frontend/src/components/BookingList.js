@@ -52,8 +52,8 @@ function BookingList({ contract, userAddress }) {
 
   const getFieldLabel = (fieldId) => {
     const name = fieldNameById?.[Number(fieldId)];
-    if (name && String(name).trim()) return `#${fieldId} - ${name}`;
-    return `#${fieldId}`;
+    if (name && String(name).trim()) return String(name).trim();
+    return `Sân ${fieldId}`;
   };
 
   const getStatusBadge = (status) => {
@@ -65,10 +65,16 @@ function BookingList({ contract, userAddress }) {
 
   const handleCancel = async (bookingId) => {
     if (cancelSubmittingId) return;
+    const normalizedId = Number(bookingId);
+    if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+      alert('Không thể hủy: Booking ID không hợp lệ (dữ liệu cũ hoặc đã bị reset).');
+      await fetchBookings();
+      return;
+    }
     if (window.confirm('Bạn chắc chắn muốn hủy đặt sân này?')) {
       try {
-        setCancelSubmittingId(bookingId);
-        await ContractService.cancelBooking(contract, bookingId);
+        setCancelSubmittingId(normalizedId);
+        await ContractService.cancelBooking(contract, normalizedId);
         alert('Đã hủy đặt sân! ✅');
         await fetchBookings();
       } catch (error) {

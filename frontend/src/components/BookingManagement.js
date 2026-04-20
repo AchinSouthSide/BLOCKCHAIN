@@ -70,13 +70,19 @@ function BookingManagement({ contract, userAddress }) {
 
   const handleCancelBooking = async (bookingId) => {
     if (actionSubmittingId) return;
+    const normalizedId = Number(bookingId);
+    if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+      alert('Không thể hủy: Booking ID không hợp lệ (dữ liệu cũ hoặc đã bị reset).');
+      loadBookings();
+      return;
+    }
     const booking = bookings.find(b => b.id === bookingId);
     
     if (booking.status === 0) {
       if (window.confirm('Hủy đặt sân này? Bạn sẽ nhận lại 40% số tiền.\nLưu ý: Chỉ có thể hủy khi chưa được admin duyệt.')) {
         try {
           setActionSubmittingId(bookingId);
-          await ContractService.cancelBooking(contract, bookingId);
+          await ContractService.cancelBooking(contract, normalizedId);
           alert('Đã hủy đặt sân! Bạn sẽ nhận lại 40% trong hộp thư. ✅');
           loadBookings();
         } catch (error) {

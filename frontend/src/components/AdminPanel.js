@@ -108,8 +108,9 @@ function AdminPanel({ contract, provider, address }) {
   const getContractAddress = useCallback(async () => {
     if (!contract) return null;
     // ethers v6: Contract has `.target` and `getAddress()`; `.address` is not reliable.
-    if (contract.target) return contract.target;
     if (typeof contract.getAddress === 'function') return await contract.getAddress();
+    if (contract.target) return contract.target;
+    if (contract.address) return contract.address;
     return null;
   }, [contract]);
 
@@ -616,11 +617,16 @@ function AdminPanel({ contract, provider, address }) {
 
   const handleCancelBooking = async (bookingId) => {
     if (!contract) return;
+    const normalizedId = Number(bookingId);
+    if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+      setError('Booking ID không hợp lệ (có thể dữ liệu đã bị reset).');
+      return;
+    }
     try {
-      setBookingActionSubmitting({ id: bookingId, action: 'cancel' });
+      setBookingActionSubmitting({ id: normalizedId, action: 'cancel' });
       setLoading(true);
-      await ContractService.cancelBooking(contract, bookingId);
-      setAdminNotifications(prev => [...prev, `❌ Đã huỷ đặt sân #${bookingId}`].slice(-5));
+      await ContractService.cancelBooking(contract, normalizedId);
+      setAdminNotifications(prev => [...prev, `❌ Đã huỷ đặt sân #${normalizedId}`].slice(-5));
       await loadAllBookings();
       await loadAdminSummary();
       setError(null);

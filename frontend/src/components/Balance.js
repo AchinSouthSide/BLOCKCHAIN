@@ -4,7 +4,8 @@ import '../styles/Balance.css';
 
 function Balance({ contract, userAddress, isPlatformOwner }) {
   const [earnings, setEarnings] = useState('0');
-  const [platformEarnings, setPlatformEarnings] = useState('0');
+  const [totalRevenue, setTotalRevenue] = useState('0');
+  const [contractBalance, setContractBalance] = useState('0');
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
 
@@ -20,20 +21,18 @@ function Balance({ contract, userAddress, isPlatformOwner }) {
     try {
       setLoading(true);
       console.log('[Balance] Loading earnings for:', userAddress);
-      
-      const earningsData = await ContractService.getOwnerEarnings(contract, userAddress);
-      console.log('[Balance] Earnings loaded:', earningsData);
-      setEarnings(earningsData);
-      
-      if (isPlatformOwner) {
-        const platformEarningsData = await ContractService.getPlatformEarnings(contract);
-        console.log('[Balance] Platform earnings:', platformEarningsData);
-        setPlatformEarnings(platformEarningsData);
-      }
+
+      // getAdminSummary() returns wallet-specific withdrawable balance as adminBalance
+      // plus global totals (confirmed bookings, total revenue, contract balance)
+      const summary = await ContractService.getAdminSummary(contract);
+      setEarnings(summary.adminBalance || '0');
+      setTotalRevenue(summary.totalRevenue || '0');
+      setContractBalance(summary.contractTotalBalance || '0');
     } catch (error) {
       console.error('[Balance] Error loading earnings:', error);
       setEarnings('0');
-      setPlatformEarnings('0');
+      setTotalRevenue('0');
+      setContractBalance('0');
     } finally {
       setLoading(false);
     }
@@ -51,33 +50,11 @@ function Balance({ contract, userAddress, isPlatformOwner }) {
 
     try {
       setWithdrawing(true);
-      await ContractService.withdraw(contract);
+      await ContractService.withdrawBalance(contract);
       alert('Rút tiền thành công! ✅');
       await loadEarnings();
     } catch (error) {
       alert('Error withdrawing: ' + error.message);
-    } finally {
-      setWithdrawing(false);
-    }
-  };
-
-  const handleWithdrawPlatformFee = async () => {
-    if (parseFloat(platformEarnings) === 0) {
-      alert('Chưa có phí platform để rút');
-      return;
-    }
-
-    if (!window.confirm(`Rút ${platformEarnings} ETH phí platform?`)) {
-      return;
-    }
-
-    try {
-      setWithdrawing(true);
-      await ContractService.withdrawPlatformFee(contract);
-      alert('Rút phí platform thành công! ✅');
-      await loadEarnings();
-    } catch (error) {
-      alert('Error: ' + error.message);
     } finally {
       setWithdrawing(false);
     }
@@ -92,7 +69,10 @@ function Balance({ contract, userAddress, isPlatformOwner }) {
         <div className="earnings-header">
           <h3>💰 Doanh thu của bạn</h3>
           <span className="earnings-amount">{earnings} ETH</span>
-        </div>
+          <p>Đây là số dư có thể rút về ví hiện tại</p>
+          <p style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
+            Tổng doanh thu (confirmed): <strong>{totalRevenue} ETH</strong> • Tổng số dư contract: <strong>{contractBalance} ETH</strong>
+          </p>
         <div className="earnings-info">
           <p>Tiền kiếm được từ việc cho thuê sân</p>
         </div>
@@ -102,26 +82,6 @@ function Balance({ contract, userAddress, isPlatformOwner }) {
           disabled={parseFloat(earnings) === 0 || withdrawing}
         >
           {withdrawing ? '⏳ Đang rút...' : '🏦 Rút tiền'}
-        </button>
-      </div>
-
-      {/* ===== PLATFORM EARNINGS (Only for Platform Owner) ===== */}
-      {isPlatformOwner && (
-        <div className="earnings-card platform-earnings">
-          <div className="earnings-header">
-            <h3>🏦 Phí Platform</h3>
-            <span className="earnings-amount">{platformEarnings} ETH</span>
-          </div>
-          <div className="earnings-info">
-            <p>Phí thu từ các giao dịch trên platform (5%)</p>
-          </div>
-          <button 
-            className="withdraw-btn"
-            onClick={handleWithdrawPlatformFee}
-            disabled={parseFloat(platformEarnings) === 0 || withdrawing}
-          >
-            {withdrawing ? '⏳ Đang rút...' : '🏦 Rút phí'}
-          </button>
         </div>
       )}
 

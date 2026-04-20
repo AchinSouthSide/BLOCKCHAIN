@@ -15,7 +15,15 @@ function Login({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [showWalletSelector, setShowWalletSelector] = useState(false);
-  const [loginMode, setLoginMode] = useState(''); // 'admin' | 'user' | ''
+  const [loginMode, setLoginMode] = useState('user'); // 'admin' | 'user'
+
+  const normalizeAddress = (addr) => String(addr || '').trim().toLowerCase();
+
+  const isUiAdminAddress = (addr, isAdminOnChain) => {
+    const envAdmin = normalizeAddress(process.env.REACT_APP_ADMIN_ADDRESS);
+    if (envAdmin) return normalizeAddress(addr) === envAdmin;
+    return Boolean(isAdminOnChain);
+  };
 
   const handleWalletSelect = async (selectedAddress) => {
     setLoading(true);
@@ -62,8 +70,15 @@ function Login({ onLoginSuccess }) {
       // Log admin status for debugging
       console.log('[Login] Wallet admin status check:', { selectedAddress, isAdmin });
 
-      // Cho phép bất kỳ ví nào chọn vào giao diện admin hoặc user (không kiểm tra quyền ở bước login)
-      const role = loginMode === 'admin' ? 'admin' : 'user';
+      // UI rule: chỉ ví Admin (on-chain hoặc cấu hình REACT_APP_ADMIN_ADDRESS) mới vào được giao diện Admin
+      const canAccessAdminUi = isUiAdminAddress(selectedAddress, isAdmin);
+      const requestedRole = loginMode === 'admin' ? 'admin' : 'user';
+      const role = canAccessAdminUi ? requestedRole : 'user';
+      if (!canAccessAdminUi && loginMode === 'admin') {
+        setLoginMode('user');
+        setError('Ví này không có quyền Admin. Hệ thống sẽ đăng nhập ở chế độ Người dùng (User).');
+      }
+
       const user = AuthService.login(selectedAddress, role, contractData);
       if (onLoginSuccess) onLoginSuccess(user, contractData);
     } catch (error) {
@@ -78,10 +93,6 @@ function Login({ onLoginSuccess }) {
 
 
   const handleOpenWalletSelector = () => {
-    if (!loginMode) {
-      setError('Vui lòng chọn quyền đăng nhập trước!');
-      return;
-    }
     setShowWalletSelector(true);
   };
 
@@ -163,7 +174,7 @@ function Login({ onLoginSuccess }) {
               <h3>ℹ️ Hướng dẫn</h3>
               <ul>
                 <li>✅ Chọn vai trò bạn muốn vào</li>
-                <li>✅ Bất kỳ ví nào cũng có thể chọn Admin hoặc User</li>
+                <li>✅ Chỉ ví có quyền Admin mới vào giao diện Admin</li>
                 <li>✅ Khi thao tác, smart contract sẽ xác thực quyền thực tế (msg.sender)</li>
                 <li>✅ Nếu không có quyền, contract sẽ từ chối giao dịch</li>
                 <li>✅ Bạn có thể thay đổi vai trò bất cứ lúc nào</li>

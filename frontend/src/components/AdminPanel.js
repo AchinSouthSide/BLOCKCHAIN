@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import ContractService from '../services/ContractService.js';
 import Inbox from './Inbox.js';
+import TransactionHistory from './TransactionHistory.js';
 import '../styles/AdminPanel.css';
 
 /**
@@ -1276,6 +1277,14 @@ function AdminPanel({ contract, provider, address }) {
                 </li>
               </ul>
             </div>
+
+            <TransactionHistory
+              contract={contract}
+              address={address}
+              mode="global"
+              limit={40}
+              lookbackBlocks={30000}
+            />
           </div>
         </div>
       )}

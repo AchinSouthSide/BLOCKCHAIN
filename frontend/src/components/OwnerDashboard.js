@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
+import TransactionHistory from './TransactionHistory';
 import '../styles/OwnerDashboard.css';
 
 function OwnerDashboard({ contract, userAddress }) {
@@ -142,6 +143,14 @@ function OwnerDashboard({ contract, userAddress }) {
           🏦 Rút tiền
         </button>
       </div>
+
+      <TransactionHistory
+        contract={contract}
+        address={userAddress}
+        mode="wallet"
+        limit={25}
+        lookbackBlocks={30000}
+      />
 
       {/* ===== FIELDS LIST ===== */}
       <div className="fields-management">

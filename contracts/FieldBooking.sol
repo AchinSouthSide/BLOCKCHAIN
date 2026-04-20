@@ -955,19 +955,25 @@ contract FieldBooking {
      * Used for testing/reset purposes
      */
     function clearAllBookings() external onlyAdmin {
-        // Clear all user bookings
+        // Delete booking structs + clear per-user lists (best-effort)
         for (uint256 i = 1; i <= bookingCounter; i++) {
             if (bookings[i].id != 0) {
                 address user = bookings[i].user;
                 delete bookings[i];
-                
-                // Clear user's booking list
-                if (userBookings[user].length > 0) {
+
+                if (user != address(0) && userBookings[user].length > 0) {
                     delete userBookings[user];
                 }
             }
         }
-        
+
+        // Clear per-field booking ID lists to avoid returning empty bookings
+        for (uint256 f = 1; f <= fieldCounter; f++) {
+            if (fields[f].id != 0 && fieldBookings[f].length > 0) {
+                delete fieldBookings[f];
+            }
+        }
+
         // Reset booking counter
         bookingCounter = 0;
     }

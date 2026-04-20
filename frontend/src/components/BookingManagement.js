@@ -50,8 +50,8 @@ function BookingManagement({ contract, userAddress }) {
 
   const getFieldLabel = (fieldId) => {
     const name = fieldNameById?.[Number(fieldId)];
-    if (name && String(name).trim()) return `Sân #${fieldId} - ${name}`;
-    return `Sân #${fieldId}`;
+    if (name && String(name).trim()) return String(name).trim();
+    return `Sân ${fieldId}`;
   };
 
   const filteredBookings = bookings.filter(booking => {

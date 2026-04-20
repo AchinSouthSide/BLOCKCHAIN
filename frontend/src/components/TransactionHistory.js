@@ -170,7 +170,7 @@ function TransactionHistory({ contract, address, mode = 'wallet', limit = 30, lo
             const user = args?.user ? String(args.user).toLowerCase() : '';
             const amount = args?.amount;
             row.type = '📥 Đặt sân (Thu vào contract)';
-            row.detail = `Booking #${bookingId} • Sân #${fieldId} • User ${user ? user.slice(0, 10) + '...' : ''}`;
+            row.detail = `Booking #${bookingId} • Sân ${fieldId} • User ${user ? user.slice(0, 10) + '...' : ''}`;
             row.amountEth = `${toEth(amount)} ETH`;
             row.direction = 'IN';
             if (mode === 'wallet' && lowerAddress) {
@@ -234,7 +234,7 @@ function TransactionHistory({ contract, address, mode = 'wallet', limit = 30, lo
             const fieldName = args?.name;
             const owner = args?.owner ? String(args.owner).toLowerCase() : '';
             row.type = '🏟️ Tạo sân';
-            row.detail = `Sân #${fieldId} • ${fieldName || ''}`;
+            row.detail = `Sân ${fieldId} • ${fieldName || ''}`;
             row.amountEth = '';
             row.direction = 'INFO';
             if (mode === 'wallet' && lowerAddress) {
@@ -246,7 +246,7 @@ function TransactionHistory({ contract, address, mode = 'wallet', limit = 30, lo
           if (name === 'FieldUpdated' || name === 'FieldUpdatedV2') {
             const fieldId = args?.fieldId;
             row.type = '✏️ Cập nhật sân';
-            row.detail = `Sân #${fieldId}`;
+            row.detail = `Sân ${fieldId}`;
             row.amountEth = '';
             row.direction = 'INFO';
 
@@ -261,7 +261,7 @@ function TransactionHistory({ contract, address, mode = 'wallet', limit = 30, lo
             const fieldId = args?.fieldId;
             const isActive = Boolean(args?.isActive);
             row.type = '🔄 Đổi trạng thái sân';
-            row.detail = `Sân #${fieldId} • ${isActive ? '🟢 Mở' : '🔴 Tắt'}`;
+            row.detail = `Sân ${fieldId} • ${isActive ? '🟢 Mở' : '🔴 Tắt'}`;
             row.amountEth = '';
             row.direction = 'INFO';
 
@@ -276,7 +276,7 @@ function TransactionHistory({ contract, address, mode = 'wallet', limit = 30, lo
             const fieldId = args?.fieldId;
             const fieldName = args?.fieldName;
             row.type = '🗑️ Hủy sân';
-            row.detail = `Sân #${fieldId} • ${fieldName || ''}`;
+            row.detail = `Sân ${fieldId} • ${fieldName || ''}`;
             row.amountEth = '';
             row.direction = 'INFO';
 

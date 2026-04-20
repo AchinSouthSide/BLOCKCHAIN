@@ -353,4 +353,32 @@ describe('FieldBooking Smart Contract (current API)', function () {
       expect(ownerBalAfter).to.equal(ownerBalBefore + ownerAmount - gasCost);
     });
   });
+
+  describe('Admin reset helpers (demo/testing)', function () {
+    it('clearAllBookings clears field booking lists and resets counter', async function () {
+      // Create a field
+      await fieldBooking.createField('Sân Test', PRICE_PER_HOUR);
+
+      // Create a booking
+      const now = await latestTimestamp();
+      const startTime = now + 3600;
+      const endTime = startTime + 3600;
+      await fieldBooking.connect(user1).bookField(1, startTime, endTime, { value: PRICE_PER_HOUR });
+
+      // Sanity: field bookings has 1 entry
+      const before = await fieldBooking.getFieldBookings(1);
+      expect(before.length).to.equal(1);
+
+      // Clear
+      await fieldBooking.clearAllBookings();
+
+      // After: field bookings should be empty
+      const after = await fieldBooking.getFieldBookings(1);
+      expect(after.length).to.equal(0);
+
+      const stats = await fieldBooking.getContractStats();
+      // totalBookings should be 0 after reset
+      expect(stats.totalBookings).to.equal(0);
+    });
+  });
 });

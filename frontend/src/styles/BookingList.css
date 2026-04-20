@@ -52,14 +52,13 @@
 
 .status-badge {
   display: inline-block;
-  padding: 8px 14px;
-  border-radius: 20px;
-  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-weight: 700;
   font-size: 12px;
   white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
 }
 
 .booking-details {

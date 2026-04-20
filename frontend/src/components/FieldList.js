@@ -15,6 +15,7 @@ function FieldList({ contract }) {
     endHour: '11'
   });
   const [showWheel, setShowWheel] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   const fetchFields = useCallback(async () => {
     try {
@@ -46,7 +47,10 @@ function FieldList({ contract }) {
       return;
     }
 
+    if (bookingSubmitting) return;
+
     try {
+      setBookingSubmitting(true);
       // Sử dụng ngày đã chọn
       const startDateTime = new Date(`${selectedDate}T${bookingData.startHour}:00:00`);
       const endDateTime = new Date(`${selectedDate}T${bookingData.endHour}:00:00`);
@@ -104,6 +108,8 @@ function FieldList({ contract }) {
       await fetchFields();
     } catch (error) {
       alert('Lỗi đặt sân: ' + error.message);
+    } finally {
+      setBookingSubmitting(false);
     }
   };
 
@@ -137,18 +143,21 @@ function FieldList({ contract }) {
             <div key={field.id} className="field-card">
               <div className="field-header">
                 <h3>🏟️ {field.name}</h3>
-                <span className="price">{field.pricePerHour} ETH/giờ</span>
+                <div className="field-header-right">
+                  <span className="price">{field.pricePerHour} ETH/giờ</span>
+                  <span className={`status-badge ${field.isActive ? 'active' : 'inactive'}`}>
+                    {field.isActive ? 'Đang mở' : 'Tạm đóng'}
+                  </span>
+                </div>
               </div>
               {(field.time || field.location) && (
-                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
-                  {field.time && <div>🕒 {field.time}</div>}
-                  {field.location && <div>📍 {field.location}</div>}
+                <div className="field-meta">
+                  {field.time && <div className="field-meta-item">🕒 {field.time}</div>}
+                  {field.location && <div className="field-meta-item">📍 {field.location}</div>}
                 </div>
               )}
               {field.description && (
-                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9 }}>
-                  📝 {field.description}
-                </div>
+                <div className="field-description">📝 {field.description}</div>
               )}
               <button 
                 className="book-btn"
@@ -180,6 +189,7 @@ function FieldList({ contract }) {
                   type="time" 
                   value={bookingData.startHour + ':00'}
                   onChange={(e) => handleDateChange('startHour', e.target.value.split(':')[0])}
+                    disabled={bookingSubmitting}
                 />
               </div>
 
@@ -189,13 +199,14 @@ function FieldList({ contract }) {
                   type="time" 
                   value={bookingData.endHour + ':00'}
                   onChange={(e) => handleDateChange('endHour', e.target.value.split(':')[0])}
+                    disabled={bookingSubmitting}
                 />
               </div>
 
-              <button className="confirm-btn" onClick={handleBooking}>
-                Xác nhận đặt sân
+              <button className="confirm-btn" onClick={handleBooking} disabled={bookingSubmitting}>
+                {bookingSubmitting ? '⏳ Đang gửi giao dịch...' : 'Xác nhận đặt sân'}
               </button>
-              <button className="cancel-btn" onClick={() => setSelectedField(null)}>
+              <button className="cancel-btn" onClick={() => !bookingSubmitting && setSelectedField(null)} disabled={bookingSubmitting}>
                 Hủy
               </button>
             </div>

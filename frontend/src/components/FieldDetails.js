@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import ContractService from '../services/ContractService';
 import '../styles/FieldDetails.css';
 
@@ -21,7 +22,8 @@ function FieldDetails({ contract, fieldId, onClose }) {
       setField({
         ...fieldData,
         id: Number(fieldData.id),
-        pricePerHour: fieldData.pricePerHour.toString()
+        pricePerHourWei: fieldData.pricePerHour.toString(),
+        pricePerHourEth: ethers.formatEther(fieldData.pricePerHour)
       });
 
       // Fetch field bookings
@@ -35,13 +37,10 @@ function FieldDetails({ contract, fieldId, onClose }) {
   };
 
   const getStatusBadge = (status) => {
-    const statusMap = {
-      0: { text: 'Chờ xác nhận', color: '#ffc107' },
-      1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã huỷ', color: '#dc3545' }
-    };
-    const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
-    return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
+    if (status === 0) return <span className="status-badge pending">⏳ Chờ xác nhận</span>;
+    if (status === 1) return <span className="status-badge confirmed">✅ Đã xác nhận</span>;
+    if (status === 2) return <span className="status-badge cancelled">❌ Đã huỷ</span>;
+    return <span className="status-badge unknown">❔ Không xác định</span>;
   };
 
   if (loading) return <div className="loading">⏳ Đang tải...</div>;
@@ -61,7 +60,12 @@ function FieldDetails({ contract, fieldId, onClose }) {
           <div className="info-grid">
             <div className="info-item">
               <label>💵 Giá</label>
-              <p>{field.pricePerHour} wei/giờ</p>
+              <p>
+                <strong>{field.pricePerHourEth} ETH</strong>/giờ
+                <span style={{ display: 'block', fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+                  ({field.pricePerHourWei} wei/giờ)
+                </span>
+              </p>
             </div>
             <div className="info-item">
               <label>👤 Chủ sân</label>

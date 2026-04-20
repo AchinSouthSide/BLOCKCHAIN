@@ -189,7 +189,7 @@ function getManualAddSteps() {
  */
 export async function verifyHardhatNetwork() {
   try {
-    const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+    const chainIdHex = await ethereumRequest({ method: 'eth_chainId' });
     const chainId = parseInt(chainIdHex, 16);
     console.log('[EnsureHardhat] Current ChainID:', chainId);
     return chainId === HARDHAT_CONFIG.chainIdNum;

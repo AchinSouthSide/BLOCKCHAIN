@@ -21,6 +21,7 @@ function AdminPanel({ contract, provider, address }) {
   const [pendingBookings, setPendingBookings] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [bookingActionSubmitting, setBookingActionSubmitting] = useState(null); // { id, action } | null
   const [error, setError] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [platformOwner, setPlatformOwner] = useState(null);
@@ -562,6 +563,7 @@ function AdminPanel({ contract, provider, address }) {
   const handleConfirmBooking = async (bookingId) => {
     if (!contract) return;
     try {
+      setBookingActionSubmitting({ id: bookingId, action: 'confirm' });
       setLoading(true);
       const receipt = await ContractService.confirmBooking(contract, bookingId);
 
@@ -607,12 +609,14 @@ function AdminPanel({ contract, provider, address }) {
       setError('Lỗi confirm booking: ' + err.message);
     } finally {
       setLoading(false);
+      setBookingActionSubmitting(null);
     }
   };
 
   const handleCancelBooking = async (bookingId) => {
     if (!contract) return;
     try {
+      setBookingActionSubmitting({ id: bookingId, action: 'cancel' });
       setLoading(true);
       await ContractService.cancelBooking(contract, bookingId);
       setAdminNotifications(prev => [...prev, `❌ Đã huỷ đặt sân #${bookingId}`].slice(-5));
@@ -624,7 +628,15 @@ function AdminPanel({ contract, provider, address }) {
       setError('Lỗi cancel booking: ' + err.message);
     } finally {
       setLoading(false);
+      setBookingActionSubmitting(null);
     }
+  };
+
+  const renderBookingStatusBadge = (status) => {
+    if (status === 0) return <span className="status-badge pending">⏳ Chờ xác nhận</span>;
+    if (status === 1) return <span className="status-badge confirmed">✅ Đã xác nhận</span>;
+    if (status === 2) return <span className="status-badge cancelled">❌ Đã huỷ</span>;
+    return <span className="status-badge unknown">❔ Không xác định</span>;
   };
 
   /**
@@ -1158,7 +1170,7 @@ function AdminPanel({ contract, provider, address }) {
                     <th>Người đặt</th>
                     <th>Thời gian</th>
                     <th>Đã trả</th>
-                    <th>Thao tác</th>
+                    <th>Duyệt / Huỷ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1170,12 +1182,24 @@ function AdminPanel({ contract, provider, address }) {
                       <td>{ContractService.formatDate(b.startTime)} → {ContractService.formatDate(b.endTime)}</td>
                       <td>{parseFloat(b.amountPaid).toFixed(4)} ETH</td>
                       <td>
-                        <button className="btn-toggle" onClick={() => handleConfirmBooking(b.id)} disabled={loading}>
-                          Xác nhận
+                        <button
+                          className="btn-toggle btn-approve"
+                          onClick={() => handleConfirmBooking(b.id)}
+                          disabled={loading || (bookingActionSubmitting?.id === b.id)}
+                        >
+                          {bookingActionSubmitting?.id === b.id && bookingActionSubmitting?.action === 'confirm'
+                            ? '⏳ Đang xác nhận...'
+                            : '✅ Xác nhận'}
                         </button>
                         {' '}
-                        <button className="btn-toggle" onClick={() => handleCancelBooking(b.id)} disabled={loading}>
-                          Huỷ
+                        <button
+                          className="btn-toggle btn-reject"
+                          onClick={() => handleCancelBooking(b.id)}
+                          disabled={loading || (bookingActionSubmitting?.id === b.id)}
+                        >
+                          {bookingActionSubmitting?.id === b.id && bookingActionSubmitting?.action === 'cancel'
+                            ? '⏳ Đang huỷ...'
+                            : '❌ Huỷ'}
                         </button>
                       </td>
                     </tr>
@@ -1207,7 +1231,7 @@ function AdminPanel({ contract, provider, address }) {
                       <td>#{b.id}</td>
                       <td>#{b.fieldId} - {b.fieldName}</td>
                       <td>{b.userShort}</td>
-                      <td>{b.statusName}</td>
+                      <td>{renderBookingStatusBadge(b.status)}</td>
                       <td>{parseFloat(b.amountPaid).toFixed(4)} ETH</td>
                       <td>{ContractService.formatDate(b.createdAt)}</td>
                     </tr>

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
+import { ethereumRequest } from '../utils/ethereumRequest';
 
 function NetworkCheck() {
   const [networkInfo, setNetworkInfo] = useState(null);
@@ -28,7 +29,7 @@ function NetworkCheck() {
 
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      const accounts = await ethereumRequest({ method: 'eth_accounts' });
 
       const chainIdNumber = Number(network.chainId);
 

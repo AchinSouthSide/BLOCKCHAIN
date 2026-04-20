@@ -7,6 +7,7 @@ function BookingList({ contract, userAddress }) {
   const [fieldNameById, setFieldNameById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelSubmittingId, setCancelSubmittingId] = useState(null);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -56,23 +57,24 @@ function BookingList({ contract, userAddress }) {
   };
 
   const getStatusBadge = (status) => {
-    const statusMap = {
-      0: { text: 'Chờ xác nhận', color: '#ffc107' },
-      1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã huỷ', color: '#dc3545' }
-    };
-    const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
-    return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
+    if (status === 0) return <span className="status-badge pending">⏳ Chờ xác nhận</span>;
+    if (status === 1) return <span className="status-badge confirmed">✅ Đã xác nhận</span>;
+    if (status === 2) return <span className="status-badge cancelled">❌ Đã huỷ</span>;
+    return <span className="status-badge unknown">❔ Không xác định</span>;
   };
 
   const handleCancel = async (bookingId) => {
+    if (cancelSubmittingId) return;
     if (window.confirm('Bạn chắc chắn muốn hủy đặt sân này?')) {
       try {
+        setCancelSubmittingId(bookingId);
         await ContractService.cancelBooking(contract, bookingId);
         alert('Đã hủy đặt sân! ✅');
         await fetchBookings();
       } catch (error) {
         alert('Lỗi hủy đặt sân: ' + error.message);
+      } finally {
+        setCancelSubmittingId(null);
       }
     }
   };
@@ -108,8 +110,12 @@ function BookingList({ contract, userAddress }) {
 
               <div className="booking-actions">
                 {booking.status === 0 && (
-                  <button className="cancel-btn" onClick={() => handleCancel(booking.id)}>
-                    ❌ Hủy
+                  <button
+                    className="cancel-btn"
+                    onClick={() => handleCancel(booking.id)}
+                    disabled={cancelSubmittingId === booking.id}
+                  >
+                    {cancelSubmittingId === booking.id ? '⏳ Đang hủy...' : '❌ Hủy'}
                   </button>
                 )}
               </div>

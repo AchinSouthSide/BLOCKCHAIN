@@ -4,8 +4,10 @@
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import './styles/StatusBadge.css';
 import AuthService from './services/AuthService';
 import ContractService from './services/ContractService';
+import { ethereumRequest } from './utils/ethereumRequest';
 import Login from './components/Login';
 import Navbar from './components/Navbar';
 import NetworkSwitcher from './components/NetworkSwitcher';
@@ -51,7 +53,7 @@ function App() {
           return;
         }
 
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const accounts = await ethereumRequest({ method: 'eth_accounts' });
         const lowerAccounts = (accounts || []).map(a => String(a).toLowerCase());
         const savedLower = String(savedUser.address).toLowerCase();
         if (!lowerAccounts.includes(savedLower)) {

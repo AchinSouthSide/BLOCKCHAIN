@@ -1,0 +1,42 @@
+/* Shared status badge styles for consistent, accessible UI */
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.confirmed {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-badge.cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.unknown {
+  background: #e2e3e5;
+  color: #383d41;
+}

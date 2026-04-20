@@ -4,10 +4,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgba(255, 255, 255, 0.98);
   padding: 20px 32px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   margin-bottom: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
 }
 
 .navbar-brand {
@@ -17,7 +19,7 @@
 }
 
 .navbar-brand h1 {
-  color: white;
+  color: #667eea;
   font-size: 28px;
   margin: 0;
   font-weight: 700;
@@ -25,11 +27,10 @@
 }
 
 .navbar-brand p {
-  color: rgba(255, 255, 255, 0.8);
+  color: #666;
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.3px;
 }
 
 .navbar-right {
@@ -42,23 +43,21 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(102, 126, 234, 0.08);
   padding: 10px 16px;
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
 .user-info .role {
-  color: white;
+  color: #333;
   font-weight: 700;
   font-size: 14px;
   white-space: nowrap;
-  letter-spacing: 0.3px;
 }
 
 .user-info .address {
   font-family: 'Courier New', monospace;
-  color: #fff;
+  color: #333;
   font-weight: 700;
   font-size: 13px;
   max-width: 120px;
@@ -69,22 +68,20 @@
 
 .logout-btn {
   padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(102, 126, 234, 0.35);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
   font-size: 14px;
   transition: all 0.3s ease;
-  letter-spacing: 0.3px;
   white-space: nowrap;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.35);
 }
 
 .logout-btn:active {
@@ -96,6 +93,7 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
+    border-radius: 12px;
   }
 
   .navbar-brand h1 {

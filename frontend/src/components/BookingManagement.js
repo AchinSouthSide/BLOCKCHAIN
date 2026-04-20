@@ -7,6 +7,7 @@ function BookingManagement({ contract, userAddress }) {
   const [fieldNameById, setFieldNameById] = useState({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
+  const [actionSubmittingId, setActionSubmittingId] = useState(null);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -61,26 +62,27 @@ function BookingManagement({ contract, userAddress }) {
   });
 
   const getStatusBadge = (status) => {
-    const statusMap = {
-      0: { text: 'Chờ xác nhận', color: '#ffc107' },
-      1: { text: 'Đã xác nhận', color: '#17a2b8' },
-      2: { text: 'Đã huỷ', color: '#dc3545' }
-    };
-    const statusInfo = statusMap[status] || { text: 'Không xác định', color: '#999' };
-    return <span className="status-badge" style={{ backgroundColor: statusInfo.color }}>{statusInfo.text}</span>;
+    if (status === 0) return <span className="status-badge pending">⏳ Chờ xác nhận</span>;
+    if (status === 1) return <span className="status-badge confirmed">✅ Đã xác nhận</span>;
+    if (status === 2) return <span className="status-badge cancelled">❌ Đã hủy</span>;
+    return <span className="status-badge unknown">❔ Không xác định</span>;
   };
 
   const handleCancelBooking = async (bookingId) => {
+    if (actionSubmittingId) return;
     const booking = bookings.find(b => b.id === bookingId);
     
     if (booking.status === 0) {
       if (window.confirm('Hủy đặt sân này? Bạn sẽ nhận lại 40% số tiền.\nLưu ý: Chỉ có thể hủy khi chưa được admin duyệt.')) {
         try {
+          setActionSubmittingId(bookingId);
           await ContractService.cancelBooking(contract, bookingId);
           alert('Đã hủy đặt sân! Bạn sẽ nhận lại 40% trong hộp thư. ✅');
           loadBookings();
         } catch (error) {
           alert('Lỗi hủy đặt sân: ' + error.message);
+        } finally {
+          setActionSubmittingId(null);
         }
       }
     } else {
@@ -173,8 +175,9 @@ function BookingManagement({ contract, userAddress }) {
                       className="cancel-btn"
                       onClick={() => handleCancelBooking(booking.id)}
                       title="Hủy booking"
+                      disabled={actionSubmittingId === booking.id}
                     >
-                      ❌ Hủy
+                      {actionSubmittingId === booking.id ? '⏳ Đang hủy...' : '❌ Hủy'}
                     </button>
                   </>
                 )}

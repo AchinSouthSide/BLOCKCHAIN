@@ -149,7 +149,7 @@ class ContractService {
     }
 
     try {
-      await window.ethereum.request({
+      await ethereumRequest({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: chainIdHex }],
       });
@@ -176,12 +176,12 @@ class ContractService {
           addParams.blockExplorerUrls = [network.explorer];
         }
 
-        await window.ethereum.request({
+        await ethereumRequest({
           method: 'wallet_addEthereumChain',
           params: [addParams],
         });
 
-        await window.ethereum.request({
+        await ethereumRequest({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chainIdHex }],
         });

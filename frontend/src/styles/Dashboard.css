@@ -18,7 +18,7 @@
   color: #333;
   font-size: 24px;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.1px;
 }
 
 .dashboard-header p {
@@ -45,13 +45,14 @@
   font-weight: 700;
   font-size: 14px;
   transition: all 0.3s ease;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.1px;
 }
 
 .action-btn:hover {
   border-color: #667eea;
   color: #667eea;
   background: #f9f9ff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
 }
 
 .action-btn.active {
@@ -133,8 +134,7 @@
   font-size: 14px;
   font-weight: 600;
   opacity: 0.9;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  letter-spacing: 0.1px;
 }
 
 .stat-value {
@@ -169,7 +169,7 @@
   margin: 0 0 20px 0;
   padding-bottom: 12px;
   border-bottom: 3px solid #667eea;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.1px;
 }
 
 .fields-browse-grid {
@@ -189,7 +189,7 @@
 .field-browse-card:hover {
   border-color: #667eea;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .field-browse-header {
@@ -211,11 +211,12 @@
 .status-badge {
   display: inline-block;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: 0.2px;
+  line-height: 1.2;
 }
 
 .status-badge.active {
@@ -241,6 +242,16 @@
 .status-badge.confirmed {
   background: #d1ecf1;
   color: #0c5460;
+}
+
+.status-badge.cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.unknown {
+  background: #e2e3e5;
+  color: #383d41;
 }
 
 .field-browse-card .location,

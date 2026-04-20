@@ -3,6 +3,8 @@
  * Force-configure Hardhat network in MetaMask properly
  */
 
+import { ethereumRequest } from './ethereumRequest';
+
 export const HARDHAT_CHAIN_ID = 31337;
 export const HARDHAT_RPC = process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545';
 export const HARDHAT_CHAIN_ID_HEX = '0x7a69';
@@ -18,7 +20,7 @@ export async function addHardhatNetwork() {
   try {
     console.log('[NetworkSetup] 🔧 FORCE adding Hardhat network to MetaMask...');
 
-    const result = await window.ethereum.request({
+    const result = await ethereumRequest({
       method: 'wallet_addEthereumChain',
       params: [
         {
@@ -71,7 +73,7 @@ export async function switchToHardhat() {
   try {
     console.log('[NetworkSetup] 🔧 Switching to Hardhat network (ChainID: 31337)...');
 
-    const result = await window.ethereum.request({
+    const result = await ethereumRequest({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: HARDHAT_CHAIN_ID_HEX }],
     });
@@ -109,7 +111,7 @@ export async function isHardhatNetwork() {
   if (!window.ethereum) return false;
 
   try {
-    const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+    const chainIdHex = await ethereumRequest({ method: 'eth_chainId' });
     const chainId = parseInt(chainIdHex, 16);
     console.log('[NetworkSetup] Current ChainID:', chainId);
     return chainId === HARDHAT_CHAIN_ID;

@@ -4,6 +4,7 @@ import '../styles/BookingManagement.css';
 
 function BookingManagement({ contract, userAddress }) {
   const [bookings, setBookings] = useState([]);
+  const [fieldNameById, setFieldNameById] = useState({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, cancelled
 
@@ -24,6 +25,33 @@ function BookingManagement({ contract, userAddress }) {
       loadBookings();
     }
   }, [contract, userAddress, loadBookings]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadFields = async () => {
+      try {
+        if (!contract) return;
+        const fields = await ContractService.getAllFields(contract);
+        const nextMap = {};
+        for (const f of fields || []) {
+          nextMap[Number(f.id)] = f.name;
+        }
+        if (mounted) setFieldNameById(nextMap);
+      } catch (e) {
+        // ignore; fallback to showing ID
+      }
+    };
+    loadFields();
+    return () => {
+      mounted = false;
+    };
+  }, [contract]);
+
+  const getFieldLabel = (fieldId) => {
+    const name = fieldNameById?.[Number(fieldId)];
+    if (name && String(name).trim()) return `Sân #${fieldId} - ${name}`;
+    return `Sân #${fieldId}`;
+  };
 
   const filteredBookings = bookings.filter(booking => {
     if (filter === 'pending') return booking.status === 0;
@@ -109,7 +137,7 @@ function BookingManagement({ contract, userAddress }) {
               <div className="booking-header">
                 <div className="booking-id">
                   <h3>Đặt sân #{booking.id}</h3>
-                  <p className="field-id">Sân #{booking.fieldId}</p>
+                  <p className="field-id">{getFieldLabel(booking.fieldId)}</p>
                 </div>
                 {getStatusBadge(booking.status)}
               </div>

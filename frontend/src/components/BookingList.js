@@ -4,6 +4,7 @@ import '../styles/BookingList.css';
 
 function BookingList({ contract, userAddress }) {
   const [bookings, setBookings] = useState([]);
+  const [fieldNameById, setFieldNameById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,6 +27,33 @@ function BookingList({ contract, userAddress }) {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadFields = async () => {
+      try {
+        if (!contract) return;
+        const fields = await ContractService.getAllFields(contract);
+        const nextMap = {};
+        for (const f of fields || []) {
+          nextMap[Number(f.id)] = f.name;
+        }
+        if (mounted) setFieldNameById(nextMap);
+      } catch (e) {
+        // ignore; fallback to showing ID
+      }
+    };
+    loadFields();
+    return () => {
+      mounted = false;
+    };
+  }, [contract]);
+
+  const getFieldLabel = (fieldId) => {
+    const name = fieldNameById?.[Number(fieldId)];
+    if (name && String(name).trim()) return `#${fieldId} - ${name}`;
+    return `#${fieldId}`;
+  };
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -73,7 +101,7 @@ function BookingList({ contract, userAddress }) {
               </div>
               
               <div className="booking-details">
-                <p><strong>🏟️ Sân ID:</strong> #{booking.fieldId}</p>
+                <p><strong>🏟️ Sân:</strong> {getFieldLabel(booking.fieldId)}</p>
                 <p><strong>💰 Số tiền đã thanh toán:</strong> {booking.amountPaid} ETH</p>
                 <p><strong>📅 Thời gian:</strong> {new Date(booking.startTime * 1000).toLocaleString('vi-VN')} - {new Date(booking.endTime * 1000).toLocaleString('vi-VN')}</p>
               </div>

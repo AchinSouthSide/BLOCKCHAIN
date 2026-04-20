@@ -144,6 +144,9 @@
   color: #666;
   font-size: 14px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ticket-info {
@@ -250,6 +253,9 @@
   font-size: 14px;
   line-height: 1.6;
   margin-bottom: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .modal-ticket {

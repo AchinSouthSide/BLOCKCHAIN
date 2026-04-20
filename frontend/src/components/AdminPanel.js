@@ -249,9 +249,26 @@ function AdminPanel({ contract, provider, address }) {
         })
       );
 
-      const merged = bookingsByField.flat().sort((a, b) => b.createdAt - a.createdAt);
+      const merged = bookingsByField
+        .flat()
+        .filter(Boolean)
+        .filter((b) => {
+          const id = Number(b?.id);
+          const fieldId = Number(b?.fieldId);
+          const user = String(b?.user || '');
+          const startTime = Number(b?.startTime);
+          const endTime = Number(b?.endTime);
+          if (!Number.isFinite(id) || id <= 0) return false;
+          if (!Number.isFinite(fieldId) || fieldId <= 0) return false;
+          if (!user || user.toLowerCase() === '0x0000000000000000000000000000000000000000') return false;
+          if (!Number.isFinite(startTime) || startTime <= 0) return false;
+          if (!Number.isFinite(endTime) || endTime <= 0) return false;
+          return true;
+        })
+        .sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+
       setAllBookings(merged);
-      setPendingBookings(merged.filter(b => b.status === 0));
+      setPendingBookings(merged.filter(b => Number(b.status) === 0));
       setError(null);
     } catch (err) {
       console.error('Error loading bookings:', err);
@@ -297,7 +314,7 @@ function AdminPanel({ contract, provider, address }) {
           provider,
           contractAddress,
         (event) => {
-          const notification = `💰 Thanh toán: Sân #${event.fieldId} - ${event.amount} ETH (Admin nhận: ${event.adminEarnings} ETH)`;
+          const notification = `💰 Thanh toán: Sân ${event.fieldId} - ${event.amount} ETH (Admin nhận: ${event.adminEarnings} ETH)`;
           setAdminNotifications(prev => [...prev, notification].slice(-5));
           // Keep stats fresh
           loadAdminSummary();
@@ -311,7 +328,7 @@ function AdminPanel({ contract, provider, address }) {
         },
         (event) => {
           const userShort = event.user ? `${event.user.slice(0, 6)}...${event.user.slice(-4)}` : 'unknown';
-          const notification = `📥 Đơn mới #${event.bookingId}: Sân #${event.fieldId} - ${event.amount} ETH (đã vào contract, chờ xác nhận) - User ${userShort}`;
+          const notification = `📥 Đơn mới ${event.bookingId}: Sân ${event.fieldId} - ${event.amount} ETH (đã vào contract, chờ xác nhận) - User ${userShort}`;
           setAdminNotifications(prev => [...prev, notification].slice(-5));
 
           // Refresh bookings list when admin is watching it
@@ -1183,8 +1200,8 @@ function AdminPanel({ contract, provider, address }) {
                 <tbody>
                   {pendingBookings.map((b) => (
                     <tr key={b.id}>
-                      <td>#{b.id}</td>
-                      <td>#{b.fieldId} - {b.fieldName}</td>
+                      <td>{b.id}</td>
+                      <td>Sân {b.fieldId} - {b.fieldName}</td>
                       <td>{b.userShort}</td>
                       <td>{ContractService.formatDate(b.startTime)} → {ContractService.formatDate(b.endTime)}</td>
                       <td>{parseFloat(b.amountPaid).toFixed(4)} ETH</td>
@@ -1235,8 +1252,8 @@ function AdminPanel({ contract, provider, address }) {
                 <tbody>
                   {allBookings.map((b) => (
                     <tr key={b.id}>
-                      <td>#{b.id}</td>
-                      <td>#{b.fieldId} - {b.fieldName}</td>
+                      <td>{b.id}</td>
+                      <td>Sân {b.fieldId} - {b.fieldName}</td>
                       <td>{b.userShort}</td>
                       <td>{renderBookingStatusBadge(b.status)}</td>
                       <td>{parseFloat(b.amountPaid).toFixed(4)} ETH</td>

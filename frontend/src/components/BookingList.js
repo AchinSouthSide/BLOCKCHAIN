@@ -70,7 +70,7 @@ function BookingList({ contract, userAddress }) {
       try {
         await ContractService.cancelBooking(contract, bookingId);
         alert('Đã hủy đặt sân! ✅');
-        fetchBookings();
+        await fetchBookings();
       } catch (error) {
         alert('Lỗi hủy đặt sân: ' + error.message);
       }

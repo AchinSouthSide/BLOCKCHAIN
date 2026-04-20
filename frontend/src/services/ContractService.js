@@ -351,21 +351,24 @@ class ContractService {
       this._requireMethod(contract, 'getFields');
       
       const fields = await contract.getFields();
-      
-      // Parse fields with safe property access
-      const parsedFields = fields.map((field, index) => ({
-        id: Number(field.id),
-        name: field.name || `Field ${field.id}`,
-        pricePerHour: ethers.formatEther(field.pricePerHour),
-        pricePerHourWei: field.pricePerHour.toString(),
-        isActive: field.isActive,
-        owner: field.owner,
-        createdAt: Number(field.createdAt),
-        time: field.time || '',
-        description: field.description || '',
-        location: field.location || '',
-        ownerShort: field.owner ? `${field.owner.slice(0, 8)}...${field.owner.slice(-4)}` : 'Unknown'
-      }));
+
+      // Contract getFields() returns a fixed-size array up to fieldCounter.
+      // Deleted fields become empty structs (id=0) and must be filtered out.
+      const parsedFields = (fields || [])
+        .filter((field) => Number(field?.id) !== 0)
+        .map((field) => ({
+          id: Number(field.id),
+          name: field.name || `Field ${field.id}`,
+          pricePerHour: ethers.formatEther(field.pricePerHour),
+          pricePerHourWei: field.pricePerHour.toString(),
+          isActive: field.isActive,
+          owner: field.owner,
+          createdAt: Number(field.createdAt),
+          time: field.time || '',
+          description: field.description || '',
+          location: field.location || '',
+          ownerShort: field.owner ? `${field.owner.slice(0, 8)}...${field.owner.slice(-4)}` : 'Unknown'
+        }));
       
       console.log('[ContractService] ✅ Retrieved', parsedFields.length, 'fields');
       return parsedFields;

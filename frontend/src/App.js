@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import AuthService from './services/AuthService';
+import ContractService from './services/ContractService';
 import Login from './components/Login';
 import Navbar from './components/Navbar';
 import NetworkSwitcher from './components/NetworkSwitcher';
@@ -28,32 +29,50 @@ function App() {
   useEffect(() => {
     console.log('[App] Initializing...');
     
-    // COMPLETE RESET - Force logout on every page load
-    AuthService.logout();
-    localStorage.clear();
-    sessionStorage.clear();
-    console.log('[App] ✅ Complete reset - all sessions cleared & user logged out');
-    
-    // Disconnect from MetaMask provider completely
-    if (window.ethereum) {
-      // Remove all event listeners from previous session
-      try {
-        window.ethereum.removeAllListeners?.();
-        console.log('[App] ✅ Removed all MetaMask event listeners');
-      } catch (e) {
-        console.log('[App] Event listener cleanup (optional)');
-      }
-    }
-    
     // Make TestRunner available globally
     if (typeof window !== 'undefined') {
       window.TestRunner = TestRunner;
       console.log('✅ Test suite loaded. Type: TestRunner.runAll() in console to run tests');
     }
     
-    console.log('[App] User must login fresh every page load');
-    
-    setLoading(false);
+    const restoreSession = async () => {
+      try {
+        const savedUser = AuthService.getCurrentUser();
+        if (!savedUser || !savedUser.address || !savedUser.isLoggedIn) {
+          return;
+        }
+
+        if (AuthService.isSessionExpired?.()) {
+          AuthService.logout();
+          return;
+        }
+
+        if (!window.ethereum) {
+          return;
+        }
+
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const lowerAccounts = (accounts || []).map(a => String(a).toLowerCase());
+        const savedLower = String(savedUser.address).toLowerCase();
+        if (!lowerAccounts.includes(savedLower)) {
+          return;
+        }
+
+        const contractData = await ContractService.connectWallet(savedUser.address);
+        const user = AuthService.login(savedUser.address, savedUser.role, contractData);
+
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+        setContract(contractData.contract);
+        setProvider(contractData.provider);
+
+        console.log('[App] ✅ Session restored:', { address: savedUser.address, role: savedUser.role });
+      } catch (e) {
+        console.warn('[App] Session restore skipped:', e?.message || e);
+      }
+    };
+
+    restoreSession().finally(() => setLoading(false));
   }, []);
 
   const handleLoginSuccess = (user, contractData) => {
@@ -77,6 +96,18 @@ function App() {
     
     // Add listeners for account/network changes
     if (window.ethereum) {
+      // Remove any previous listeners we registered (avoid duplicates)
+      try {
+        if (window._appAccountListener) {
+          window.ethereum.removeListener('accountsChanged', window._appAccountListener);
+        }
+        if (window._appChainListener) {
+          window.ethereum.removeListener('chainChanged', window._appChainListener);
+        }
+      } catch (e) {
+        // optional
+      }
+
       // Listen for account changes
       const handleAccountsChanged = (accounts) => {
         console.warn('[App] MetaMask account changed! Force logout.');
@@ -102,6 +133,22 @@ function App() {
 
   const handleLogout = () => {
     console.log('[App] Logging out...');
+
+    if (window.ethereum) {
+      try {
+        if (window._appAccountListener) {
+          window.ethereum.removeListener('accountsChanged', window._appAccountListener);
+        }
+        if (window._appChainListener) {
+          window.ethereum.removeListener('chainChanged', window._appChainListener);
+        }
+      } catch (e) {
+        // optional
+      }
+    }
+    delete window._appAccountListener;
+    delete window._appChainListener;
+
     AuthService.logout();
     setCurrentUser(null);
     setContract(null);

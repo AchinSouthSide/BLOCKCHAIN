@@ -43,9 +43,26 @@ export async function ensureHardhatNetwork() {
   console.log('[EnsureHardhat] Attempt 1: Adding network directly...');
   let addResult = await attemptAddNetwork();
   if (addResult.success) {
+    // Some wallets add+switch automatically, some only add.
+    const switched = await attemptSwitch();
+    const verified = await verifyHardhatNetwork();
+    if (verified) {
+      return {
+        success: true,
+        message: switched.success ? 'Network added and switched successfully' : 'Network added successfully'
+      };
+    }
+
     return {
-      success: true,
-      message: 'Network added to MetaMask successfully'
+      success: false,
+      message: 'Đã thêm network nhưng chưa switch sang Hardhat. Vui lòng mở MetaMask và chọn "Hardhat Local".',
+      steps: [
+        '1. Mở MetaMask',
+        '2. Chọn network "Hardhat Local"',
+        '3. Nếu bị lỗi "Could not fetch chain ID": hãy bật Hardhat node hoặc kiểm tra RPC URL',
+        `   • RPC URL: ${HARDHAT_RPC}`,
+        '4. Quay lại trang và bấm Thử lại'
+      ]
     };
   }
 
@@ -84,10 +101,21 @@ export async function ensureHardhatNetwork() {
   }
 
   // **ATTEMPT 4: Unknown error with fallback**
+  const maybeChainIdFetch = String(addResult.message || '').toLowerCase().includes('could not fetch chain id');
   return {
     success: false,
-    message: `Network setup failed. Error: ${addResult.message || 'Unknown'}`,
-    steps: getManualAddSteps()
+    message: maybeChainIdFetch
+      ? 'Không thể kết nối RPC Hardhat (MetaMask báo: Could not fetch chain ID).'
+      : `Network setup failed. Error: ${addResult.message || 'Unknown'}`,
+    steps: maybeChainIdFetch
+      ? [
+          '1. Bật Hardhat node trên máy bạn: `npx hardhat node`',
+          '2. Đảm bảo RPC đang chạy',
+          `   • RPC URL: ${HARDHAT_RPC}`,
+          '3. Nếu bạn dùng tunnel (cloudflared), hãy cập nhật REACT_APP_HARDHAT_RPC đúng URL',
+          '4. Quay lại và bấm Thử lại'
+        ]
+      : getManualAddSteps()
   };
 }
 

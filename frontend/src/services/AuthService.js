@@ -39,8 +39,8 @@ class AuthService {
       userAddress: address
     };
 
-    // DISABLE localStorage - Session will be cleared on refresh
-    // localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
+    // Persist user so reload doesn't lose session
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
     sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
 
     console.log('[AuthService] User logged in successfully');

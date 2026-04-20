@@ -3,7 +3,7 @@
  * Displays notifications and messages for user/admin
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ContractService from '../services/ContractService';
 import '../styles/Inbox.css';
 
@@ -14,6 +14,7 @@ function Inbox({ contract, userAddress, role }) {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [filter, setFilter] = useState('all'); // all, unread
   const [hiddenNotificationIds, setHiddenNotificationIds] = useState(() => new Set());
+  const fetchInFlightRef = useRef(false);
 
   const getHiddenStorageKey = useCallback(() => {
     const contractAddress = contract?.target || contract?.address || 'unknown_contract';
@@ -47,6 +48,8 @@ function Inbox({ contract, userAddress, role }) {
   }, [loadHiddenIdsFromStorage]);
 
   const fetchNotifications = useCallback(async ({ showSpinner = false } = {}) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     try {
       if (showSpinner) setLoading(true);
       setError('');
@@ -69,6 +72,7 @@ function Inbox({ contract, userAddress, role }) {
       setNotifications([]);
     } finally {
       if (showSpinner) setLoading(false);
+      fetchInFlightRef.current = false;
     }
   }, [contract, userAddress, loadHiddenIdsFromStorage]);
 

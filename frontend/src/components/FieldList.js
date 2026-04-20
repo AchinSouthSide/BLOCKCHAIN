@@ -101,7 +101,7 @@ function FieldList({ contract }) {
       setShowWheel(true);
       
       setSelectedField(null);
-      fetchFields();
+      await fetchFields();
     } catch (error) {
       alert('Lỗi đặt sân: ' + error.message);
     }

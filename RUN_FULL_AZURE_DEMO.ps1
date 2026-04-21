@@ -145,34 +145,20 @@ if (-not $SkipLocalBuild) {
   }
 }
 
-# --- Start Cloudflare quick tunnel for RPC and capture HTTPS URL ---
-$runId = [Guid]::NewGuid().ToString('N')
-$logPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.log")
-$errPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.err.log")
-New-Item -Path $logPath -ItemType File -Force | Out-Null
-New-Item -Path $errPath -ItemType File -Force | Out-Null
-
+# --- Start Cloudflare quick tunnel for RPC ---
+# Note: We'll open it in a visible window so user can see the URL and copy it
 Write-Host "Starting Cloudflare quick tunnel for http://${rpcHost}:$rpcPort ..." -ForegroundColor Yellow
-$cfProc = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url',"http://${rpcHost}:$rpcPort",'--no-autoupdate') -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
+Write-Host ">>> Opening cloudflared in a separate window. Please copy the tunnel URL (https://...--.trycloudflare.com) and paste it below." -ForegroundColor Cyan
 
-Write-Host "Waiting for tunnel URL..." -ForegroundColor Yellow
-$tunnelUrl = $null
+$cfCmd = "cd '$repoRoot'; & '$cloudflared' tunnel --url http://${rpcHost}:$rpcPort --no-autoupdate; Read-Host 'Press Enter to close this window'"
+Start-Process -FilePath 'powershell' -ArgumentList @('-NoExit','-Command', $cfCmd) | Out-Null
 
-foreach ($line in (Get-Content -Path @($logPath, $errPath) -ErrorAction SilentlyContinue)) {
-  if ($line -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') { $tunnelUrl = $matches[0]; break }
-}
+Write-Host "`n"
+$tunnelUrl = Read-Host "Paste the tunnel URL (https://xxxxx.trycloudflare.com)"
+$tunnelUrl = $tunnelUrl.Trim()
 
-if (-not $tunnelUrl) {
-  foreach ($line in Get-Content -Path @($logPath, $errPath) -Wait) {
-    if ($line -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') {
-      $tunnelUrl = $matches[0]
-      break
-    }
-  }
-}
-
-if (-not $tunnelUrl) {
-  throw 'Could not detect trycloudflare tunnel URL. Check log: ' + $logPath
+if (-not ($tunnelUrl -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')) {
+  throw "Invalid tunnel URL format. Expected: https://xxxxx.trycloudflare.com"
 }
 
 Write-Host "Tunnel URL: $tunnelUrl" -ForegroundColor Green
@@ -199,7 +185,6 @@ try {
   Write-Host "⚠️ Could not trigger workflow. You can trigger manually in GitHub Actions." -ForegroundColor Yellow
 }
 
-Write-Host "\nDone. Keep these running during demo:" -ForegroundColor Cyan
-Write-Host "  - Hardhat node window"
-Write-Host "  - cloudflared process (PID=$($cfProc.Id))"
-Write-Host "\nIf attendees already opened the Azure link, ask them to hard refresh (Ctrl+F5)." -ForegroundColor Cyan
+Write-Host "\n✅ Azure demo is being deployed. Keep the cloudflared window open during the demo!" -ForegroundColor Cyan
+Write-Host "Demo will be live at the Azure SWA URL (check GitHub Actions output)." -ForegroundColor Green
+Write-Host "`nTo stop: close the cloudflared window, or Ctrl+C in this terminal." -ForegroundColor Cyan

@@ -1,6 +1,19 @@
-# FieldBooking - one-command demo runner (Hardhat local + Cloudflare tunnel + Azure SWA rebuild)
-# Usage (from FieldBooking/):
-#   powershell -ExecutionPolicy Bypass -File .\RUN_DEMO.ps1
+<#
+FieldBooking - demo runner (Hardhat local + Cloudflare tunnel + Azure SWA rebuild)
+
+Default behavior (recommended for demo persistence):
+- If Hardhat RPC is already running AND deployment.json exists, reuse the existing contract
+  to preserve on-chain demo data.
+- Use -Redeploy to deploy a fresh contract (will reset demo data).
+
+Usage (from FieldBooking/):
+  powershell -ExecutionPolicy Bypass -File .\RUN_DEMO.ps1
+  powershell -ExecutionPolicy Bypass -File .\RUN_DEMO.ps1 -Redeploy
+#>
+
+param(
+  [switch]$Redeploy
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -17,14 +30,14 @@ Write-Host "\n=== FieldBooking Demo Runner ===\n" -ForegroundColor Cyan
 
 # --- Requirements ---
 Require-Command -name 'node' -installHint 'Install Node.js 18+.'
-Require-Command -name 'npm' -installHint 'Node.js install should include npm.'
+Require-Command -name 'npm.cmd' -installHint 'Node.js install should include npm.'
 Require-Command -name 'gh' -installHint 'Install GitHub CLI (gh) and login (gh auth login).'
 
 # --- Ensure deps for Hardhat exist ---
 $hardhatCmd = Join-Path $repoRoot 'node_modules\.bin\hardhat.cmd'
 if (-not (Test-Path $hardhatCmd)) {
   Write-Host "Installing root dependencies (npm ci)..." -ForegroundColor Yellow
-  npm ci
+  npm.cmd ci
 }
 
 # --- Verify gh auth ---
@@ -57,13 +70,18 @@ if (-not $rpcListening) {
 $adminAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 $env:ADMIN_ADDRESS = $adminAddress
 
-Write-Host "Deploying contract to localhost (ADMIN_ADDRESS=$adminAddress)..." -ForegroundColor Yellow
-& $hardhatCmd run .\scripts\deploy.js --network localhost
-
 $deploymentPath = Join-Path $repoRoot 'deployment.json'
-if (-not (Test-Path $deploymentPath)) {
-  throw "deployment.json not found after deploy."
+
+$shouldDeploy = $Redeploy -or (-not (Test-Path $deploymentPath)) -or (-not $rpcListening)
+if ($shouldDeploy) {
+  Write-Host "Deploying contract to localhost (ADMIN_ADDRESS=$adminAddress)..." -ForegroundColor Yellow
+  & $hardhatCmd run .\scripts\deploy.js --network localhost
+} else {
+  Write-Host "Reusing existing deployment.json (no redeploy) to preserve demo data." -ForegroundColor Green
+  Write-Host "Tip: run with -Redeploy to deploy a fresh contract (resets demo data)." -ForegroundColor Cyan
 }
+
+if (-not (Test-Path $deploymentPath)) { throw "deployment.json not found." }
 
 $deployment = Get-Content $deploymentPath -Raw | ConvertFrom-Json
 $contractAddress = [string]$deployment.contractAddress

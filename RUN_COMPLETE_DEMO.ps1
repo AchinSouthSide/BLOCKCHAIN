@@ -40,10 +40,8 @@ function Require-Command([string]$name, [string]$installHint) {
   }
 }
 
-Write-Host "`n╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  FieldBooking - One-Click Complete Demo                       ║" -ForegroundColor Cyan
-Write-Host "║  (Hardhat + Deploy + Tunnel + Azure + Auto-Open Browser)     ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════╝`n" -ForegroundColor Cyan
+Write-Host "`n========== FieldBooking - One-Click Complete Demo ==========" -ForegroundColor Cyan
+Write-Host "Starting: Hardhat + Deploy + Tunnel + Azure + Auto-Browser`n" -ForegroundColor Cyan
 
 # --- Requirements ---
 Require-Command -name 'node' -installHint 'Install Node.js 18+.'
@@ -185,9 +183,9 @@ Write-Host "Triggering Azure redeploy (GitHub Actions)..." -ForegroundColor Yell
 $workflowName = 'Azure Static Web Apps CI/CD'
 try {
   gh workflow run $workflowName -r main | Out-Null
-  Write-Host "✅ Workflow triggered: $workflowName" -ForegroundColor Green
+  Write-Host "[OK] Workflow triggered: $workflowName" -ForegroundColor Green
 } catch {
-  Write-Host "⚠️ Could not trigger workflow. You can trigger manually in GitHub Actions." -ForegroundColor Yellow
+  Write-Host "[WARNING] Could not trigger workflow. You can trigger manually in GitHub Actions." -ForegroundColor Yellow
 }
 
 # --- Open Azure SWA URL in browser (with delay for workflow to start) ---
@@ -198,10 +196,8 @@ Start-Sleep -Seconds 30
 Write-Host "Opening Azure demo in browser: $azureUrl" -ForegroundColor Green
 Start-Process $azureUrl
 
-Write-Host "`n╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  ✅ Demo is ready!                                             ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host "`nℹ️  Important:  Keep these windows open during the demo:" -ForegroundColor Green
-Write-Host "   • Hardhat node window"
-Write-Host "   • Cloudflared window (tunnel)"
-Write-Host "`n💡 If the page loads blank, do Hard Refresh (Ctrl+F5)." -ForegroundColor Yellow
+Write-Host "`n[OK] Demo is ready!" -ForegroundColor Cyan
+Write-Host "Important: Keep these windows open during the demo:" -ForegroundColor Green
+Write-Host "  - Hardhat node window"
+Write-Host "  - Cloudflared window (tunnel)"
+Write-Host "`nTip: If the page loads blank, do Hard Refresh (Ctrl+F5)." -ForegroundColor Yellow

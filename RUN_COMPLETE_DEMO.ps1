@@ -133,19 +133,19 @@ function Get-ContractCode([string]$rpcUrl, [string]$address) {
   }
 }
 
-function Get-HttpClient([int]$timeoutSeconds = 8) {
+function Get-HttpClient() {
   if (-not ('System.Net.Http.HttpClient' -as [type])) {
     Add-Type -AssemblyName System.Net.Http
   }
   if (-not $script:__fieldbookingHttpClient) {
     $script:__fieldbookingHttpClient = [System.Net.Http.HttpClient]::new()
+    $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds(8)
   }
-  $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds($timeoutSeconds)
   return $script:__fieldbookingHttpClient
 }
 
 function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @()) {
-  $client = Get-HttpClient -timeoutSeconds 8
+  $client = Get-HttpClient
   $payload = @{ jsonrpc = '2.0'; id = 1; method = $method; params = $params } | ConvertTo-Json -Compress
   $content = [System.Net.Http.StringContent]::new($payload, [System.Text.Encoding]::UTF8, 'application/json')
 

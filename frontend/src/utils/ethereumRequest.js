@@ -47,12 +47,26 @@ export function formatMetaMaskError(err) {
   }
 
   // Common provider/RPC failures
+  if (String(message).toLowerCase().includes('could not coalesce')) {
+    const hardhatRpc = process.env.REACT_APP_HARDHAT_RPC || 'http://127.0.0.1:8545';
+    return (
+      'Không thể kết nối RPC (ethers: could not coalesce). ' +
+      'Thường do MetaMask đang trỏ RPC Hardhat sai (ví dụ vẫn là 127.0.0.1 trên máy bạn). ' +
+      'Cách xử lý nhanh: MetaMask → Settings → Networks → Hardhat Local → cập nhật RPC URL đúng, hoặc xoá network rồi thêm lại. ' +
+      `RPC URL cần dùng: ${hardhatRpc}`
+    );
+  }
+
   if (String(message).toLowerCase().includes('could not fetch chain id')) {
     return 'Không thể kết nối RPC (MetaMask: Could not fetch chain ID). Hãy kiểm tra RPC URL hoặc bật Hardhat node.';
   }
 
   if (String(message).toLowerCase().includes('insufficient funds')) {
-    return 'Không đủ ETH để trả phí gas/giá trị giao dịch. Hãy nạp ETH hoặc chọn tài khoản có đủ số dư.';
+    return (
+      'Không đủ ETH để trả phí gas/giá trị giao dịch. ' +
+      'Nếu bạn đang dùng Hardhat demo từ máy khác: hãy import 1 trong các tài khoản Hardhat (có sẵn 10,000 ETH) vào MetaMask, ' +
+      'hoặc nhờ host chuyển ETH vào ví của bạn.'
+    );
   }
 
   if (code === -32601) {

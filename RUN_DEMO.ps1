@@ -117,6 +117,16 @@ $errPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.err.log")
 New-Item -Path $logPath -ItemType File -Force | Out-Null
 New-Item -Path $errPath -ItemType File -Force | Out-Null
 
+function Find-TunnelUrl([string]$text) {
+  if (-not $text) { return $null }
+  # cloudflared output can be wrapped with newlines/spaces in the middle of the URL.
+  $flat = ($text -replace '\s', '')
+  if ($flat -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') {
+    return $matches[0]
+  }
+  return $null
+}
+
 Write-Host "Starting Cloudflare quick tunnel for http://${rpcHost}:$rpcPort ..." -ForegroundColor Yellow
 $cfProc = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url',"http://${rpcHost}:$rpcPort",'--no-autoupdate') -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
 
@@ -124,17 +134,24 @@ Write-Host "Waiting for tunnel URL..." -ForegroundColor Yellow
 $tunnelUrl = $null
 
 # First scan existing content (cloudflared may print the URL immediately).
-foreach ($line in (Get-Content -Path @($logPath, $errPath) -ErrorAction SilentlyContinue)) {
-  if ($line -match 'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') { $tunnelUrl = $matches[0]; break }
+try {
+  $initialText = (Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue) + "\n" + (Get-Content -Path $errPath -Raw -ErrorAction SilentlyContinue)
+  $tunnelUrl = Find-TunnelUrl $initialText
+} catch {
+  $tunnelUrl = $null
 }
 
-# If not found yet, tail both logs and wait for it.
+# If not found yet, poll the log for a short time (avoid missing early output).
 if (-not $tunnelUrl) {
-  foreach ($line in Get-Content -Path @($logPath, $errPath) -Wait) {
-    if ($line -match 'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') {
-      $tunnelUrl = $matches[0]
-      break
+  $deadline = (Get-Date).AddSeconds(30)
+  while ((-not $tunnelUrl) -and ((Get-Date) -lt $deadline)) {
+    try {
+      $text = (Get-Content -Path $errPath -Raw -ErrorAction SilentlyContinue) + "\n" + (Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue)
+      $tunnelUrl = Find-TunnelUrl $text
+    } catch {
+      $tunnelUrl = $null
     }
+    if (-not $tunnelUrl) { Start-Sleep -Milliseconds 250 }
   }
 }
 

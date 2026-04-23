@@ -3,7 +3,7 @@
  * Kiểm tra xem đang kết nối network nào
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { ethereumRequest } from '../utils/ethereumRequest';
 
@@ -11,16 +11,7 @@ function NetworkCheck() {
   const [networkInfo, setNetworkInfo] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    checkNetwork();
-    // Lắng nghe thay đổi network
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', checkNetwork);
-      return () => window.ethereum.removeListener('chainChanged', checkNetwork);
-    }
-  }, []);
-
-  const checkNetwork = async () => {
+  const checkNetwork = useCallback(async () => {
     try {
       if (!window.ethereum) {
         setError('MetaMask chưa được cài đặt');
@@ -32,6 +23,12 @@ function NetworkCheck() {
       const accounts = await ethereumRequest({ method: 'eth_accounts' });
 
       const chainIdNumber = Number(network.chainId);
+      const rawExpected = process.env.REACT_APP_NETWORK_ID;
+      const expectedChainId = rawExpected
+        ? Number.parseInt(String(rawExpected), 10)
+        : null;
+      const expectedChainIdSafe = Number.isFinite(expectedChainId) ? expectedChainId : null;
+      const isExpectedNetwork = expectedChainIdSafe ? chainIdNumber === expectedChainIdSafe : true;
 
       console.log('[NetworkCheck] Current Network:', network);
       console.log('[NetworkCheck] Chain ID:', chainIdNumber);
@@ -41,22 +38,30 @@ function NetworkCheck() {
       setNetworkInfo({
         chainId: chainIdNumber,
         name: network.name,
-        isFree: chainIdNumber === 31337, // Only true if explicitly Hardhat
+        isFree: chainIdNumber === 31337,
+        expectedChainId: expectedChainIdSafe,
+        isExpectedNetwork,
         accounts: accounts.length,
-        status: (chainIdNumber === 31337) ? '✅ Miễn phí (Gas = 0)' : '⚠️ Có thể mất phí gas',
+        status: isExpectedNetwork ? '✅ Đúng network' : '⚠️ Sai network so với cấu hình app',
       });
 
-      if (chainIdNumber !== 31337) {
-        console.warn(
-          '[NetworkCheck] ⚠️ Not on Hardhat Local.',
-          'ChainID: ' + chainIdNumber
-        );
+      if (!isExpectedNetwork) {
+        console.warn('[NetworkCheck] ⚠️ Network mismatch', { chainIdNumber, expectedChainId: expectedChainIdSafe });
       }
     } catch (err) {
       console.error('[NetworkCheck] Error:', err);
       setError(err.message);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkNetwork();
+    // Lắng nghe thay đổi network
+    if (window.ethereum) {
+      window.ethereum.on('chainChanged', checkNetwork);
+      return () => window.ethereum.removeListener('chainChanged', checkNetwork);
+    }
+  }, [checkNetwork]);
 
   if (error) {
     return (
@@ -88,8 +93,9 @@ function NetworkCheck() {
     );
   }
 
-  const bgColor = networkInfo.isFree ? '#e8f5e9' : '#fff3e0';
-  const borderColor = networkInfo.isFree ? '#4caf50' : '#ff9800';
+  const ok = networkInfo.isExpectedNetwork;
+  const bgColor = ok ? '#e8f5e9' : '#fff3e0';
+  const borderColor = ok ? '#4caf50' : '#ff9800';
 
   return (
     <div
@@ -109,12 +115,17 @@ function NetworkCheck() {
       <div>
         🔗 Network: {networkInfo.name} (ChainID: {networkInfo.chainId})
       </div>
+      {networkInfo.expectedChainId && (
+        <div>
+          🎯 Expected ChainID: {networkInfo.expectedChainId}
+        </div>
+      )}
       <div>
         👥 Accounts: {networkInfo.accounts}
       </div>
-      {!networkInfo.isFree && (
+      {!networkInfo.isExpectedNetwork && (
         <div style={{ color: '#d32f2f', fontWeight: 'bold', marginTop: '4px' }}>
-          ⚠️ CẢNH BÁO: Đang dùng network có phí! Chuyển sang Hardhat Local!
+          ⚠️ CẢNH BÁO: Network hiện tại không đúng so với cấu hình app.
         </div>
       )}
     </div>

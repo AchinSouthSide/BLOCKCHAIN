@@ -122,6 +122,31 @@ $chainId = [string]$deployment.chainId
 if (-not $contractAddress) { throw 'Missing contractAddress in deployment.json' }
 if (-not $chainId) { throw 'Missing chainId in deployment.json' }
 
+function Get-ContractCode([string]$rpcUrl, [string]$address) {
+  try {
+    $payload = @{ jsonrpc = '2.0'; id = 1; method = 'eth_getCode'; params = @($address, 'latest') } | ConvertTo-Json -Compress
+    $resp = Invoke-RestMethod -Method Post -Uri $rpcUrl -ContentType 'application/json' -Body $payload -TimeoutSec 5
+    return [string]$resp.result
+  } catch {
+    return $null
+  }
+}
+
+# If Hardhat node was restarted, deployment.json may point to an address with no code on the new chain.
+if (-not $shouldDeploy) {
+  $rpcUrl = "http://${rpcHost}:$rpcPort"
+  $code = Get-ContractCode -rpcUrl $rpcUrl -address $contractAddress
+  if ($code -eq '0x') {
+    Write-Host "deployment.json contract not found on current chain. Redeploying..." -ForegroundColor Yellow
+    & $hardhatCmd run .\scripts\deploy.js --network localhost
+    $deployment = Get-Content $deploymentPath -Raw | ConvertFrom-Json
+    $contractAddress = [string]$deployment.contractAddress
+    $chainId = [string]$deployment.chainId
+    if (-not $contractAddress) { throw 'Missing contractAddress in deployment.json after redeploy' }
+    if (-not $chainId) { throw 'Missing chainId in deployment.json after redeploy' }
+  }
+}
+
 Write-Host "Contract: $contractAddress (chainId=$chainId)" -ForegroundColor Green
 
 # --- Build frontend + start local server ---
@@ -151,17 +176,52 @@ if (-not $serverListening) {
 
 # --- Start Cloudflare quick tunnel for RPC ---
 Write-Host "Starting Cloudflare quick tunnel for http://${rpcHost}:$rpcPort ..." -ForegroundColor Yellow
-Write-Host ">>> Opening cloudflared in a separate window. Please copy the tunnel URL (https://...--.trycloudflare.com) and paste it below." -ForegroundColor Cyan
 
-$cfCmd = "cd '$repoRoot'; & '$cloudflared' tunnel --url http://${rpcHost}:$rpcPort --no-autoupdate; Read-Host 'Press Enter to close this window'"
-Start-Process -FilePath 'powershell' -ArgumentList @('-NoExit','-Command', $cfCmd) | Out-Null
+$runId = [Guid]::NewGuid().ToString('N')
+$logPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.log")
+$errPath = Join-Path $env:TEMP ("fieldbooking_cloudflared_$runId.err.log")
+New-Item -Path $logPath -ItemType File -Force | Out-Null
+New-Item -Path $errPath -ItemType File -Force | Out-Null
 
-Write-Host "`n"
-$tunnelUrl = Read-Host "Paste the tunnel URL (https://xxxxx.trycloudflare.com)"
-$tunnelUrl = $tunnelUrl.Trim()
+function Find-TunnelUrl([string]$text) {
+  if (-not $text) { return $null }
+  # cloudflared output can be wrapped with newlines/spaces in the middle of the URL.
+  $flat = ($text -replace '\s', '')
+  if ($flat -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') {
+    return $matches[0]
+  }
+  return $null
+}
 
-if (-not ($tunnelUrl -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')) {
-  throw "Invalid tunnel URL format. Expected: https://xxxxx.trycloudflare.com"
+$cfProc = Start-Process -FilePath $cloudflared -ArgumentList @('tunnel','--url',"http://${rpcHost}:$rpcPort",'--no-autoupdate') -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
+
+Write-Host "Waiting for tunnel URL..." -ForegroundColor Yellow
+$tunnelUrl = $null
+
+# First scan existing content (cloudflared may print the URL immediately).
+try {
+  $initialText = (Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -Path $errPath -Raw -ErrorAction SilentlyContinue)
+  $tunnelUrl = Find-TunnelUrl $initialText
+} catch {
+  $tunnelUrl = $null
+}
+
+# If not found yet, poll the log for a short time (avoid missing early output).
+if (-not $tunnelUrl) {
+  $deadline = (Get-Date).AddSeconds(30)
+  while ((-not $tunnelUrl) -and ((Get-Date) -lt $deadline)) {
+    try {
+      $text = (Get-Content -Path $errPath -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue)
+      $tunnelUrl = Find-TunnelUrl $text
+    } catch {
+      $tunnelUrl = $null
+    }
+    if (-not $tunnelUrl) { Start-Sleep -Milliseconds 250 }
+  }
+}
+
+if (-not $tunnelUrl) {
+  throw 'Could not detect trycloudflare tunnel URL. Check log: ' + $logPath
 }
 
 Write-Host "Tunnel URL: $tunnelUrl" -ForegroundColor Green
@@ -199,5 +259,5 @@ Start-Process $azureUrl
 Write-Host "`n[OK] Demo is ready!" -ForegroundColor Cyan
 Write-Host "Important: Keep these windows open during the demo:" -ForegroundColor Green
 Write-Host "  - Hardhat node window"
-Write-Host "  - Cloudflared window (tunnel)"
+Write-Host "  - Cloudflared process (tunnel) (PID=$($cfProc.Id))"
 Write-Host "`nTip: If the page loads blank, do Hard Refresh (Ctrl+F5)." -ForegroundColor Yellow

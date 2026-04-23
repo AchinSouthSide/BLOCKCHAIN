@@ -1,6 +1,6 @@
 /**
  * WalletSelector Component
- * Auto-detect tài khoản và setup network với Hardhat Local
+ * Auto-detect tài khoản và hiển thị danh sách ví MetaMask
  */
 
 import React, { useEffect, useState } from 'react';
@@ -15,6 +15,13 @@ function WalletSelector({ onSelectWallet, onCancel }) {
   const [errorSteps, setErrorSteps] = useState([]);
   const [accountList, setAccountList] = useState([]);
   const [network, setNetwork] = useState('');
+
+  const getExpectedChainId = () => {
+    const raw = process.env.REACT_APP_NETWORK_ID;
+    if (!raw) return null;
+    const parsed = Number.parseInt(String(raw), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   useEffect(() => {
     // Auto-detect tất cả account
@@ -33,18 +40,25 @@ function WalletSelector({ onSelectWallet, onCancel }) {
         throw new Error('MetaMask chưa được cài đặt. Vui lòng cài đặt MetaMask extension.');
       }
 
-      // **STEP 1: Ensure Hardhat network setup**
-      console.log('[WalletSelector] 🔧 Step 1/3: Setting up Hardhat network...');
-      const networkSetup = await ensureHardhatNetwork();
-      
-      if (!networkSetup.success) {
-        console.error('[WalletSelector] Network setup failed:', networkSetup.message);
-        setError(networkSetup.message);
-        setErrorSteps(networkSetup.steps || []);
-        setLoading(false);
-        return;
+      // **STEP 1: Network setup (conditional)**
+      // Only force Hardhat when the build is configured for chainId=31337.
+      const expectedChainId = getExpectedChainId();
+      const shouldForceHardhat = expectedChainId === 31337;
+      if (shouldForceHardhat) {
+        console.log('[WalletSelector] 🔧 Step 1/3: Setting up Hardhat network...');
+        const networkSetup = await ensureHardhatNetwork();
+
+        if (!networkSetup.success) {
+          console.error('[WalletSelector] Network setup failed:', networkSetup.message);
+          setError(networkSetup.message);
+          setErrorSteps(networkSetup.steps || []);
+          setLoading(false);
+          return;
+        }
+        console.log('[WalletSelector] ✅ Hardhat network ready');
+      } else {
+        console.log('[WalletSelector] 🔧 Step 1/3: Skipping Hardhat forcing (non-local build)');
       }
-      console.log('[WalletSelector] ✅ Hardhat network ready');
 
       // **STEP 2: Request accounts from MetaMask**
       console.log('[WalletSelector] 📋 Step 2/3: Requesting accounts...');
@@ -68,11 +82,10 @@ function WalletSelector({ onSelectWallet, onCancel }) {
       console.log('[WalletSelector] Current ChainID:', netInfo.chainId);
       
       let networkStatus = '';
-      if (netInfo.chainId === 31337) {
-        networkStatus = '✅ Hardhat Local (Sẵn sàng)';
+      if (expectedChainId && Number(netInfo.chainId) !== Number(expectedChainId)) {
+        networkStatus = `⚠️ ChainID hiện tại: ${netInfo.chainId} (khác với app config: ${expectedChainId})`;
       } else {
-        networkStatus = `⚠️ Network ${netInfo.chainId} (Cảnh báo: Không phải Hardhat)`;
-        console.warn('[WalletSelector] ⚠️ Not on Hardhat network. User should switch in MetaMask.');
+        networkStatus = `✅ ChainID: ${netInfo.chainId}`;
       }
       setNetwork(networkStatus);
 
@@ -117,7 +130,7 @@ function WalletSelector({ onSelectWallet, onCancel }) {
           {loading ? (
             <div className="loading-state">
               <div className="spinner"></div>
-              <p className="loading-message">🔧 Setting up Hardhat Local...</p>
+              <p className="loading-message">🔧 Checking network...</p>
               <p className="loading-message">📋 Loading your accounts...</p>
               <p style={{fontSize: '12px', color: '#666', marginTop: '20px'}}>{network}</p>
             </div>

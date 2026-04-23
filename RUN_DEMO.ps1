@@ -176,7 +176,7 @@ Write-Host "  REACT_APP_HARDHAT_RPC=$tunnelUrl"
 # --- Trigger Azure Static Web Apps workflow ---
 Write-Host "Triggering Azure redeploy (GitHub Actions)..." -ForegroundColor Yellow
 $workflowName = 'Azure Static Web Apps CI/CD'
-gh workflow run $workflowName -r main -f deployment_environment=production | Out-Null
+gh workflow run $workflowName -r main | Out-Null
 
 Write-Host "\nDone. Keep these running during demo:" -ForegroundColor Cyan
 Write-Host "  - Hardhat node window"

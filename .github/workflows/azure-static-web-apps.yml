@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       deployment_environment:
-        description: 'Azure Static Web Apps environment name (use "production" for main site)'
+        description: 'Azure Static Web Apps environment name (leave empty for production/main site)'
         required: false
-        default: 'production'
+        default: ''
   push:
     branches:
       - main
@@ -57,7 +57,7 @@ jobs:
           api_location: ""
           output_location: ""
           skip_app_build: true
-          deployment_environment: ${{ github.event_name == 'workflow_dispatch' && (inputs.deployment_environment || 'production') || '' }}
+          deployment_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || '' }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

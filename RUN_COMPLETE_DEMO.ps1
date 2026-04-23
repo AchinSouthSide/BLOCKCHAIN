@@ -242,7 +242,7 @@ Write-Host "  REACT_APP_HARDHAT_RPC=$tunnelUrl"
 Write-Host "Triggering Azure redeploy (GitHub Actions)..." -ForegroundColor Yellow
 $workflowName = 'Azure Static Web Apps CI/CD'
 try {
-  gh workflow run $workflowName -r main -f deployment_environment=production | Out-Null
+  gh workflow run $workflowName -r main | Out-Null
   Write-Host "[OK] Workflow triggered: $workflowName" -ForegroundColor Green
 } catch {
   Write-Host "[WARNING] Could not trigger workflow. You can trigger manually in GitHub Actions." -ForegroundColor Yellow

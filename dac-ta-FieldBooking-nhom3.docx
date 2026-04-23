@@ -1,0 +1,36 @@
+Đặc tả Field Booking nhóm 3
+
+Thành viên nhóm:
+- Lê Mai Trường Chinh
+- Lê Thanh Trân
+- Hồ Nguyễn Đức Anh Hào
+- Võ Tấn Qui
+
+1. Giới thiệu
+Field Booking là hệ thống Dapp cho phép người dùng đặt sân thể thao trên nền tảng blockchain. Ứng dụng hỗ trợ quản lý sân, đặt lịch, xác nhận booking, thanh toán và rút tiền minh bạch qua smart contract.
+
+2. Chức năng chính
+- Đăng nhập bằng ví MetaMask
+- Quản lý sân (tạo, sửa, xóa, kích hoạt/vô hiệu hóa)
+- Đặt sân, chọn thời gian, thanh toán bằng ETH
+- Quản lý booking: xác nhận, hủy, xem lịch sử
+- Thống kê doanh thu, số lượt đặt sân
+- Rút tiền về ví admin
+- Hỗ trợ nhiều tài khoản, phân quyền admin/user
+
+3. Công nghệ sử dụng
+- Smart contract Solidity (FieldBooking.sol)
+- Hardhat, Ethers.js, ReactJS
+- Local blockchain (Hardhat) hoặc testnet
+
+4. Hướng dẫn sử dụng
+- Chạy script RUN_LOCAL_DEV.ps1 để khởi động toàn bộ hệ thống trên 1 máy
+- Truy cập http://localhost:3000 để sử dụng Dapp
+- Import các account Hardhat vào MetaMask để test nhiều vai trò
+
+5. Link GitHub
+https://github.com/AchinSouthSide/BLOCKCHAIN
+
+---
+
+Mọi thông tin chi tiết, xem thêm tại README.md và START_HERE.md trong repo.

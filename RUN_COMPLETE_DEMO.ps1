@@ -134,9 +134,11 @@ function Get-ContractCode([string]$rpcUrl, [string]$address) {
 }
 
 function Get-HttpClient([int]$timeoutSeconds = 8) {
+  if (-not ('System.Net.Http.HttpClient' -as [type])) {
+    Add-Type -AssemblyName System.Net.Http
+  }
   if (-not $script:__fieldbookingHttpClient) {
-    $handler = [System.Net.Http.HttpClientHandler]::new()
-    $script:__fieldbookingHttpClient = [System.Net.Http.HttpClient]::new($handler)
+    $script:__fieldbookingHttpClient = [System.Net.Http.HttpClient]::new()
   }
   $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds($timeoutSeconds)
   return $script:__fieldbookingHttpClient

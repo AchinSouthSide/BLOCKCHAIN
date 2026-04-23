@@ -34,6 +34,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
+# Public Azure URL (stable)
+$azureUrl = "https://brave-plant-0fe513f00.7.azurestaticapps.net"
+
 function Require-Command([string]$name, [string]$installHint) {
   if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
     throw "Missing required command: '$name'. $installHint"
@@ -132,6 +135,54 @@ function Get-ContractCode([string]$rpcUrl, [string]$address) {
   }
 }
 
+function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @()) {
+  $payload = @{ jsonrpc = '2.0'; id = 1; method = $method; params = $params } | ConvertTo-Json -Compress
+  $resp = Invoke-RestMethod -Method Post -Uri $rpcUrl -ContentType 'application/json' -Body $payload -TimeoutSec 8
+  if ($null -ne $resp.error) {
+    $msg = [string]($resp.error.message)
+    throw "RPC error calling ${method}: $msg"
+  }
+  return $resp.result
+}
+
+function Parse-ChainId([string]$chainIdValue) {
+  if (-not $chainIdValue) { return $null }
+  $s = [string]$chainIdValue
+  if ($s -match '^0x[0-9a-fA-F]+$') {
+    return [Convert]::ToInt32($s.Substring(2), 16)
+  }
+  $n = 0
+  if ([int]::TryParse($s, [ref]$n)) { return $n }
+  return $null
+}
+
+function Get-RepoNameWithOwner() {
+  try {
+    # Example output: AchinSouthSide/BLOCKCHAIN
+    $nwo = (gh repo view --json nameWithOwner -q .nameWithOwner) 2>$null
+    if ($nwo) { return [string]$nwo }
+  } catch {}
+  return $null
+}
+
+function Wait-ForTunnelRpc([string]$rpcUrl, [int]$timeoutSeconds = 30) {
+  $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+  $lastError = $null
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $null = Invoke-JsonRpc -rpcUrl $rpcUrl -method 'eth_chainId'
+      return $true
+    } catch {
+      $lastError = $_.Exception.Message
+    }
+    Start-Sleep -Seconds 2
+  }
+  if ($lastError) {
+    throw "Tunnel RPC not reachable within ${timeoutSeconds}s. Last error: $lastError"
+  }
+  throw "Tunnel RPC not reachable within ${timeoutSeconds}s."
+}
+
 # If Hardhat node was restarted, deployment.json may point to an address with no code on the new chain.
 if (-not $shouldDeploy) {
   $rpcUrl = "http://${rpcHost}:$rpcPort"
@@ -226,6 +277,48 @@ if (-not $tunnelUrl) {
 
 Write-Host "Tunnel URL: $tunnelUrl" -ForegroundColor Green
 
+# --- Preflight: ensure tunnel works for remote users ---
+Write-Host "Running preflight checks (RPC + contract via tunnel)..." -ForegroundColor Yellow
+$localRpcUrl = "http://${rpcHost}:$rpcPort"
+
+try {
+  Wait-ForTunnelRpc -rpcUrl $tunnelUrl -timeoutSeconds 30
+
+  $localChainHex = Invoke-JsonRpc -rpcUrl $localRpcUrl -method 'eth_chainId'
+  $tunnelChainHex = Invoke-JsonRpc -rpcUrl $tunnelUrl -method 'eth_chainId'
+
+  $localChain = Parse-ChainId $localChainHex
+  $tunnelChain = Parse-ChainId $tunnelChainHex
+  $expectedChain = Parse-ChainId $chainId
+
+  if ($null -eq $expectedChain) { throw "Invalid chainId in deployment.json: $chainId" }
+  if ($localChain -ne $expectedChain) {
+    throw "Local RPC chainId mismatch. Expected=$expectedChain, Actual=$localChain"
+  }
+  if ($tunnelChain -ne $expectedChain) {
+    throw "Tunnel RPC chainId mismatch. Expected=$expectedChain, Actual=$tunnelChain"
+  }
+
+  $codeLocal = Get-ContractCode -rpcUrl $localRpcUrl -address $contractAddress
+  if (-not $codeLocal -or $codeLocal -eq '0x') {
+    throw "Contract not found on local RPC at $contractAddress. Try rerun with -Redeploy."
+  }
+
+  $codeTunnel = Get-ContractCode -rpcUrl $tunnelUrl -address $contractAddress
+  if (-not $codeTunnel -or $codeTunnel -eq '0x') {
+    throw "Contract not reachable via tunnel at $contractAddress. Remote users will FAIL."
+  }
+
+  Write-Host "[OK] Preflight passed: chainId + contract code verified via tunnel." -ForegroundColor Green
+} catch {
+  Write-Host "[ERROR] Preflight failed: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "Fix hints:" -ForegroundColor Yellow
+  Write-Host "  - Keep Hardhat node running on http://${rpcHost}:$rpcPort" -ForegroundColor Yellow
+  Write-Host "  - Keep cloudflared tunnel running" -ForegroundColor Yellow
+  Write-Host "  - If needed, run again with: .\RUN_COMPLETE_DEMO.ps1 -Redeploy" -ForegroundColor Yellow
+  throw
+}
+
 # --- Update GitHub repo Variables (build-time env for Azure SWA) ---
 Write-Host "Updating GitHub Variables for Azure build..." -ForegroundColor Yellow
 
@@ -238,20 +331,93 @@ Write-Host "  REACT_APP_NETWORK_ID=$chainId"
 Write-Host "  REACT_APP_CONTRACT_ADDRESS=$contractAddress"
 Write-Host "  REACT_APP_HARDHAT_RPC=$tunnelUrl"
 
+# --- Write a persistent demo info file to Desktop (so reboot/open later is easy) ---
+try {
+  $desktop = [Environment]::GetFolderPath('Desktop')
+  $infoPath = Join-Path $desktop 'BLOCKCHAIN_DEMO_INFO.txt'
+  $info = @"
+FieldBooking Demo Info (Hardhat)
+===============================
+Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+
+Azure URL:
+$azureUrl
+
+Hardhat RPC Tunnel (use this in MetaMask RPC URL):
+$tunnelUrl
+
+ChainId:
+$chainId
+
+Contract Address:
+$contractAddress
+
+MetaMask setup (for attendees on other Wi-Fi):
+1) Add network manually:
+   - Network name: Hardhat Local
+   - RPC URL: $tunnelUrl
+   - Chain ID: 31337
+   - Currency: ETH
+2) Import a Hardhat prefunded private key (10,000 ETH) from demo-wallets.json or DEMO_HARDHAT_ACCOUNTS.md
+3) Open Azure URL and hard refresh if needed (Ctrl+F5)
+
+Important:
+- Host MUST keep Hardhat node + cloudflared tunnel windows running.
+"@
+  Set-Content -Path $infoPath -Value $info -Encoding UTF8
+  Write-Host "Saved demo info: $infoPath" -ForegroundColor Green
+} catch {
+  Write-Host "[WARNING] Could not write demo info file to Desktop." -ForegroundColor Yellow
+}
+
 # --- Trigger Azure Static Web Apps workflow ---
 Write-Host "Triggering Azure redeploy (GitHub Actions)..." -ForegroundColor Yellow
 $workflowName = 'Azure Static Web Apps CI/CD'
+$repoNwo = Get-RepoNameWithOwner
+$triggeredRunId = $null
 try {
   gh workflow run $workflowName -r main | Out-Null
   Write-Host "[OK] Workflow triggered: $workflowName" -ForegroundColor Green
+
+  # Try to capture the newest run id for polling
+  $runs = gh run list --workflow $workflowName --limit 1 --json databaseId,createdAt,status,conclusion,url | ConvertFrom-Json
+  if ($runs -and $runs.Count -gt 0) {
+    $triggeredRunId = [string]$runs[0].databaseId
+    Write-Host "Azure Run: $($runs[0].url)" -ForegroundColor Cyan
+  }
 } catch {
   Write-Host "[WARNING] Could not trigger workflow. You can trigger manually in GitHub Actions." -ForegroundColor Yellow
 }
 
-# --- Open Azure SWA URL in browser (with delay for workflow to start) ---
-$azureUrl = "https://brave-plant-0fe513f00.7.azurestaticapps.net"
-Write-Host "`nWaiting for Azure workflow to deploy (30 seconds)..." -ForegroundColor Cyan
-Start-Sleep -Seconds 30
+# --- Wait for Azure workflow result (best-effort) ---
+if ($triggeredRunId -and $repoNwo) {
+  Write-Host "`nWaiting for Azure workflow to deploy (up to 5 minutes)..." -ForegroundColor Cyan
+  $deadline = (Get-Date).AddMinutes(5)
+  $final = $null
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $final = gh api "repos/$repoNwo/actions/runs/$triggeredRunId" --jq '{status:.status, conclusion:.conclusion, html_url:.html_url}' | ConvertFrom-Json
+      if ($final.status -eq 'completed') { break }
+    } catch {
+      # ignore transient GH/api errors
+    }
+    Start-Sleep -Seconds 5
+  }
+
+  if ($final -and $final.status -eq 'completed') {
+    if ($final.conclusion -eq 'success') {
+      Write-Host "[OK] Azure deploy success." -ForegroundColor Green
+    } else {
+      Write-Host "[WARNING] Azure deploy not successful yet: $($final.conclusion)" -ForegroundColor Yellow
+      if ($final.html_url) { Write-Host "Run details: $($final.html_url)" -ForegroundColor Yellow }
+    }
+  } else {
+    Write-Host "[WARNING] Azure deploy status unknown (timeout)." -ForegroundColor Yellow
+  }
+} else {
+  Write-Host "`nWaiting for Azure workflow to start (30 seconds)..." -ForegroundColor Cyan
+  Start-Sleep -Seconds 30
+}
 
 Write-Host "Opening Azure demo in browser: $azureUrl" -ForegroundColor Green
 Start-Process $azureUrl

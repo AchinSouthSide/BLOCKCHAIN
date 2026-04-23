@@ -1,6 +1,7 @@
 /**
  * Login Component
- * Demo mode: mọi ví đăng nhập đều là Admin (để demo dễ dàng)
+ * Cho phép user chọn wallet, sau đó chọn role (Admin/User).
+ * Demo requirement: không giới hạn ví cụ thể cho Admin UI.
  */
 
 import React, { useState } from 'react';
@@ -15,6 +16,7 @@ function Login({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [showWalletSelector, setShowWalletSelector] = useState(false);
+  const [loginMode, setLoginMode] = useState('user'); // 'admin' | 'user'
 
   const handleWalletSelect = async (selectedAddress) => {
     setLoading(true);
@@ -61,8 +63,8 @@ function Login({ onLoginSuccess }) {
       // Log admin status for debugging
       console.log('[Login] Wallet admin status check:', { selectedAddress, isAdmin });
 
-      // Demo requirement: mọi ví đều vào Admin UI
-      const role = 'admin';
+      // Demo requirement: ai cũng có thể chọn Admin/User (không chặn theo ví)
+      const role = loginMode === 'admin' ? 'admin' : 'user';
 
       const user = AuthService.login(selectedAddress, role, contractData);
       if (onLoginSuccess) onLoginSuccess(user, contractData);
@@ -101,15 +103,31 @@ function Login({ onLoginSuccess }) {
           <p className="subtitle">Hệ thống đặt sân thể thao trên Blockchain</p>
 
           <div className="login-content">
-            <h2>📋 Đăng nhập</h2>
+            <h2>📋 Chọn vai trò của bạn</h2>
             <NetworkCheck />
 
-            <div className="info-box" style={{ marginTop: '12px' }}>
-              <h3>✅ Chế độ Demo</h3>
-              <ul>
-                <li>✅ Mọi ví đăng nhập đều có quyền Admin</li>
-                <li>✅ Dùng để demo/test nhanh trên Hardhat</li>
-              </ul>
+            {/* Lựa chọn vai trò */}
+            <div className="role-selector">
+              <label
+                className={`role-option ${loginMode === 'admin' ? 'selected' : ''}`}
+                onClick={() => !loading && setLoginMode('admin')}
+              >
+                <div className="role-icon">👨‍💼</div>
+                <div>
+                  <strong>Quản lý (Admin)</strong>
+                  <small>Tạo sân, quản lý đặt, rút doanh thu</small>
+                </div>
+              </label>
+              <label
+                className={`role-option ${loginMode === 'user' ? 'selected' : ''}`}
+                onClick={() => !loading && setLoginMode('user')}
+              >
+                <div className="role-icon">👤</div>
+                <div>
+                  <strong>Người dùng (User)</strong>
+                  <small>Duyệt sân, đặt sân, xem lịch của tôi</small>
+                </div>
+              </label>
             </div>
 
             <button 
@@ -142,6 +160,7 @@ function Login({ onLoginSuccess }) {
             <div className="info-box">
               <h3>ℹ️ Hướng dẫn</h3>
               <ul>
+                <li>✅ Chọn vai trò bạn muốn vào</li>
                 <li>✅ Bấm "Chọn Ví & Đăng Nhập"</li>
                 <li>✅ MetaMask phải đúng network theo app</li>
                 <li>✅ Khi thao tác, smart contract sẽ xác thực quyền thực tế (msg.sender)</li>

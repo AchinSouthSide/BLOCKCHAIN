@@ -60,6 +60,69 @@ class ContractService {
       );
     }
   }
+
+  static async _getContractTarget(contract) {
+    if (!contract) return null;
+    try {
+      if (typeof contract.getAddress === 'function') return await contract.getAddress();
+    } catch (e) {
+      // ignore
+    }
+    if (contract.target) return contract.target;
+    if (contract.address) return contract.address;
+    return null;
+  }
+
+  static _getProviderFromContract(contract) {
+    // ethers v6: contract.runner is a Signer/Provider; signer.provider is the provider
+    const runner = contract?.runner;
+    if (runner?.provider) return runner.provider;
+    if (runner?.getNetwork && runner?.getCode) return runner;
+    // fallback: some code may pass provider directly
+    return contract?.provider || null;
+  }
+
+  static async _assertContractHasCode(contract, context = '') {
+    const provider = this._getProviderFromContract(contract);
+    const target = await this._getContractTarget(contract);
+    if (!provider || !target) return;
+
+    try {
+      const code = await provider.getCode(target);
+      if (!code || String(code).toLowerCase() === '0x') {
+        throw new Error(
+          `Contract không tồn tại tại address ${target} trên network hiện tại. ` +
+          (context ? `(${context}) ` : '') +
+          'Nguyên nhân thường gặp: Hardhat vừa restart (chain reset) hoặc REACT_APP_CONTRACT_ADDRESS đang sai. ' +
+          'Cách xử lý: redeploy contract và cập nhật lại contract address/network (hoặc logout + hard refresh rồi đăng nhập lại).'
+        );
+      }
+    } catch (e) {
+      // If provider itself fails, keep original error
+      if (e instanceof Error) throw e;
+    }
+  }
+
+  static _looksLikeBadDataZeroResult(error) {
+    const code = error?.code;
+    const value = error?.value;
+    const message = error?.message || '';
+    if (code === 'BAD_DATA' && String(value).toLowerCase() === '0x') return true;
+    if (message.includes('could not decode result data') && message.includes("value='0x")) return true;
+    return false;
+  }
+
+  static _toFriendlyReadError(error, contract, methodName) {
+    if (!this._looksLikeBadDataZeroResult(error)) return error;
+
+    const target = contract?.target || contract?.address || '(unknown)';
+    return new Error(
+      `Không đọc được dữ liệu từ contract (method ${methodName}) vì RPC trả về 0x. ` +
+      `Address hiện tại: ${target}. ` +
+      'Nguyên nhân thường gặp: sai contract address, sai network, Hardhat restart (chain reset), hoặc ABI không khớp với contract đã deploy. ' +
+      'Cách xử lý: redeploy contract và cập nhật đúng REACT_APP_CONTRACT_ADDRESS/REACT_APP_NETWORK_ID, rồi hard refresh và đăng nhập lại.'
+    );
+  }
   
   // ==================== WALLET CONNECTION ====================
   
@@ -105,6 +168,9 @@ class ContractService {
         FIELD_BOOKING_ABI,
         signer
       );
+
+      // Fail fast: wrong address or chain reset will return 0x code.
+      await this._assertContractHasCode(contract, 'connectWallet');
 
       return {
         isConnected: true,
@@ -349,6 +415,8 @@ class ContractService {
       console.log('[ContractService] getAllFields() called');
 
       this._requireMethod(contract, 'getFields');
+
+      await this._assertContractHasCode(contract, 'getFields');
       
       const fields = await contract.getFields();
 
@@ -374,7 +442,7 @@ class ContractService {
       return parsedFields;
     } catch (error) {
       console.error('[ContractService] getAllFields error:', error);
-      throw error;
+      throw this._toFriendlyReadError(error, contract, 'getFields');
     }
   }
 
@@ -416,6 +484,8 @@ class ContractService {
       console.log('[ContractService] getFieldsWithStats() called');
 
       this._requireMethod(contract, 'getFields');
+
+      await this._assertContractHasCode(contract, 'getFields');
       
       const fields = await contract.getFields();
       const fieldsWithStats = [];
@@ -460,7 +530,7 @@ class ContractService {
       return fieldsWithStats;
     } catch (error) {
       console.error('[ContractService] getFieldsWithStats error:', error);
-      throw error;
+      throw this._toFriendlyReadError(error, contract, 'getFields');
     }
   }
 
@@ -952,10 +1022,13 @@ class ContractService {
   static async getTopFields(contract, limit = 10) {
     try {
       this._requireMethod(contract, 'getFields');
+
+      await this._assertContractHasCode(contract, 'getFields');
+
       const fields = await contract.getFields();
-      const fieldStatsPromises = fields.map(field => 
-        this.getFieldStats(contract, field.id)
-      );
+
+      const validFields = (fields || []).filter((f) => Number(f?.id) !== 0);
+      const fieldStatsPromises = validFields.map(field => this.getFieldStats(contract, field.id));
       const allStats = await Promise.all(fieldStatsPromises);
       
       // Sort by revenue and return top N
@@ -966,7 +1039,7 @@ class ContractService {
       return sorted.slice(0, limit);
     } catch (error) {
       console.error('[ContractService] getTopFields error:', error);
-      throw error;
+      throw this._toFriendlyReadError(error, contract, 'getFields');
     }
   }
 

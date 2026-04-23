@@ -65,6 +65,17 @@ if (-not $rpcListening) {
   Write-Host "Hardhat RPC already listening on http://${rpcHost}:$rpcPort" -ForegroundColor Green
 }
 
+function Get-EthGetCode([string]$rpcUrl, [string]$address) {
+  if (-not $address) { return $null }
+  $payload = @{ jsonrpc = '2.0'; id = 1; method = 'eth_getCode'; params = @($address, 'latest') } | ConvertTo-Json -Compress
+  try {
+    $resp = Invoke-RestMethod -Method Post -Uri $rpcUrl -ContentType 'application/json' -Body $payload -TimeoutSec 10
+    return [string]$resp.result
+  } catch {
+    return $null
+  }
+}
+
 # --- Deploy contract to localhost (fresh chain after reboot) ---
 # Default first Hardhat account (deterministic) — OK for demo.
 $adminAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
@@ -73,6 +84,22 @@ $env:ADMIN_ADDRESS = $adminAddress
 $deploymentPath = Join-Path $repoRoot 'deployment.json'
 
 $shouldDeploy = $Redeploy -or (-not (Test-Path $deploymentPath)) -or (-not $rpcListening)
+
+if (-not $shouldDeploy -and (Test-Path $deploymentPath)) {
+  try {
+    $deployment = Get-Content $deploymentPath -Raw | ConvertFrom-Json
+    $contractAddress = [string]$deployment.contractAddress
+    $rpcUrl = "http://${rpcHost}:$rpcPort"
+    $code = Get-EthGetCode -rpcUrl $rpcUrl -address $contractAddress
+    if (-not $code -or $code.ToLowerInvariant() -eq '0x') {
+      Write-Host "Detected missing contract code at $contractAddress (chain was likely reset). Will redeploy..." -ForegroundColor Yellow
+      $shouldDeploy = $true
+    }
+  } catch {
+    Write-Host "Could not verify existing deployment; will redeploy for safety." -ForegroundColor Yellow
+    $shouldDeploy = $true
+  }
+}
 if ($shouldDeploy) {
   Write-Host "Deploying contract to localhost (ADMIN_ADDRESS=$adminAddress)..." -ForegroundColor Yellow
   & $hardhatCmd run .\scripts\deploy.js --network localhost

@@ -13,8 +13,19 @@
 
 ## 📋 HƯỚNG DẪN TEST NHANH
 
+## ⚡ Chạy nhanh (1 máy, không Azure) — Khuyên dùng
+
+Chạy 1 lệnh là có Hardhat + deploy + frontend dev:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\RUN_LOCAL_DEV.ps1
+```
+
+Mở: `http://localhost:3000`
+
 ### **BƯỚC 1: Mở Browser**
-Vào: `http://localhost:3001`
+Nếu bạn chạy `RUN_LOCAL.ps1` (bundle + server) thì vào: `http://localhost:3001`
+
+Nếu bạn chạy `RUN_LOCAL_DEV.ps1` (dev server) thì vào: `http://localhost:3000`
 
 ### **BƯỚC 2: Controller/Logout**
 Nếu đã login, click **🚪 Logout**

@@ -4,6 +4,24 @@
 
 ---
 
+## ⚡ Cách chạy nhanh (1 máy, không Azure) — Khuyên dùng
+
+### Option 1 (DEV nhanh nhất): 1 lệnh chạy tất cả
+```powershell
+powershell -ExecutionPolicy Bypass -File .\RUN_LOCAL_DEV.ps1
+```
+
+Mở app tại: **http://localhost:3000**
+
+### Option 2 (giống production hơn): build + server
+```powershell
+powershell -ExecutionPolicy Bypass -File .\RUN_LOCAL.ps1
+```
+
+Mở app tại: **http://localhost:3001**
+
+---
+
 ## 📋 One-Time Setup (First Time Only)
 
 ### Step 1: Navigate to Project
@@ -84,6 +102,10 @@ Visit: **http://localhost:3000**
 3. **Logout** and login as User
 4. **Book** the field
 5. ✅ Done!
+
+### Multi-user trên 1 máy (không cần máy khác)
+- Cách 1: Import nhiều account Hardhat vào MetaMask và đổi account khi test
+- Cách 2: Dùng 2 Chrome/Edge profile (mỗi profile có MetaMask riêng) để mở 2 phiên song song
 
 ### Option B: Full Test (15 minutes)
 Follow the 7 scenarios in [TESTING_GUIDE.md](./TESTING_GUIDE.md)

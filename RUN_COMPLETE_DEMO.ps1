@@ -31,6 +31,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Ensure modern TLS for HTTPS calls (PowerShell 5.1 / older defaults can fail against Cloudflare)
+try {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {
+  # ignore
+}
+
+trap {
+  Write-Host "`n❌ RUN_COMPLETE_DEMO.ps1 failed" -ForegroundColor Red
+  Write-Host (($_ | Out-String).Trim()) -ForegroundColor Red
+  Write-Host "`nPress Enter to close..." -ForegroundColor Yellow
+  [void](Read-Host)
+  exit 1
+}
+
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
@@ -133,19 +148,47 @@ function Get-ContractCode([string]$rpcUrl, [string]$address) {
   }
 }
 
-function Get-HttpClient() {
+function Get-HttpClient([switch]$NoProxy) {
   if (-not ('System.Net.Http.HttpClient' -as [type])) {
     Add-Type -AssemblyName System.Net.Http
   }
+
+  if ($NoProxy) {
+    if (-not $script:__fieldbookingHttpClientNoProxy) {
+      $handler = New-Object System.Net.Http.HttpClientHandler
+      $handler.UseProxy = $false
+      $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+      $script:__fieldbookingHttpClientNoProxy = New-Object System.Net.Http.HttpClient($handler)
+      $script:__fieldbookingHttpClientNoProxy.Timeout = [TimeSpan]::FromSeconds(10)
+    }
+    return $script:__fieldbookingHttpClientNoProxy
+  }
+
   if (-not $script:__fieldbookingHttpClient) {
-    $script:__fieldbookingHttpClient = [System.Net.Http.HttpClient]::new()
-    $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds(8)
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+    $script:__fieldbookingHttpClient = New-Object System.Net.Http.HttpClient($handler)
+    $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds(10)
   }
   return $script:__fieldbookingHttpClient
 }
 
-function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @()) {
-  $client = Get-HttpClient
+function Get-ExceptionSummary([System.Exception]$ex) {
+  if (-not $ex) { return '' }
+  $parts = @()
+  $cur = $ex
+  $depth = 0
+  while ($cur -and $depth -lt 6) {
+    $msg = [string]$cur.Message
+    if ($msg) { $parts += $msg }
+    $cur = $cur.InnerException
+    $depth++
+  }
+  return ($parts -join ' | ')
+}
+
+function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @(), [switch]$NoProxy) {
+  $client = Get-HttpClient -NoProxy:$NoProxy
   $payload = @{ jsonrpc = '2.0'; id = 1; method = $method; params = $params } | ConvertTo-Json -Compress
   $content = [System.Net.Http.StringContent]::new($payload, [System.Text.Encoding]::UTF8, 'application/json')
 
@@ -165,9 +208,11 @@ function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @(
 
     return $resp.result
   } catch {
-    # Normalize common network errors for clearer output
-    $msg = $_.Exception.Message
-    throw "RPC request failed calling ${method}: $msg"
+    # Normalize common network errors for clearer output (include inner exception messages)
+    $summary = Get-ExceptionSummary $_.Exception
+    $mode = ''
+    if ($NoProxy) { $mode = ' (no-proxy)' }
+    throw "RPC request failed${mode} calling ${method}: $summary"
   }
 }
 
@@ -191,19 +236,52 @@ function Get-RepoNameWithOwner() {
   return $null
 }
 
-function Wait-ForTunnelRpc([string]$rpcUrl, [int]$timeoutSeconds = 30) {
+function Wait-ForTunnelRpc([string]$rpcUrl, [int]$timeoutSeconds = 90) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastError = $null
+  $lastNoProxyError = $null
   while ((Get-Date) -lt $deadline) {
     try {
       $null = Invoke-JsonRpc -rpcUrl $rpcUrl -method 'eth_chainId'
       return $true
     } catch {
       $lastError = $_.Exception.Message
+
+      # Fallback: some machines have a broken WinHTTP proxy; retry once with proxy disabled
+      try {
+        $null = Invoke-JsonRpc -rpcUrl $rpcUrl -method 'eth_chainId' -NoProxy
+        return $true
+      } catch {
+        $lastNoProxyError = $_.Exception.Message
+      }
     }
     Start-Sleep -Seconds 2
   }
   if ($lastError) {
+    # Diagnostics to help fix network/DNS/proxy issues
+    try {
+      $hostName = ([Uri]$rpcUrl).Host
+      if ($hostName) {
+        Write-Host "[Diag] Tunnel host: $hostName" -ForegroundColor Yellow
+        try {
+          $dns = Resolve-DnsName -Name $hostName -ErrorAction SilentlyContinue | Select-Object -First 3 | Format-Table -AutoSize | Out-String
+          if ($dns) { Write-Host "[Diag] Resolve-DnsName:\n$dns" -ForegroundColor Yellow }
+        } catch {}
+
+        try {
+          $tnc = Test-NetConnection -ComputerName $hostName -Port 443 -InformationLevel Detailed 2>$null | Out-String
+          if ($tnc) { Write-Host "[Diag] Test-NetConnection 443:\n$tnc" -ForegroundColor Yellow }
+        } catch {}
+
+        try {
+          $proxy = (netsh winhttp show proxy) 2>$null | Out-String
+          if ($proxy) { Write-Host "[Diag] WinHTTP proxy:\n$proxy" -ForegroundColor Yellow }
+        } catch {}
+      }
+    } catch {
+      # ignore diagnostics errors
+    }
+
     # Extra hint: some local DNS resolvers block/lag on *.trycloudflare.com
     try {
       $hostName = ([Uri]$rpcUrl).Host
@@ -218,7 +296,12 @@ function Wait-ForTunnelRpc([string]$rpcUrl, [int]$timeoutSeconds = 30) {
       # ignore nslookup diagnostics errors and fall through to generic error
     }
 
-    throw "Tunnel RPC not reachable within ${timeoutSeconds}s. Last error: $lastError"
+    $extra = ''
+    if ($lastNoProxyError) {
+      $extra = " No-proxy last error: $lastNoProxyError"
+    }
+
+    throw "Tunnel RPC not reachable within ${timeoutSeconds}s. Last error: $lastError$extra"
   }
   throw "Tunnel RPC not reachable within ${timeoutSeconds}s."
 }
@@ -320,12 +403,15 @@ if (-not $tunnelUrl) {
 
 Write-Host "Tunnel URL: $tunnelUrl" -ForegroundColor Green
 
+# Give Cloudflare a moment to fully route traffic to the tunnel
+Start-Sleep -Seconds 2
+
 # --- Preflight: ensure tunnel works for remote users ---
 Write-Host "Running preflight checks (RPC + contract via tunnel)..." -ForegroundColor Yellow
 $localRpcUrl = "http://${rpcHost}:$rpcPort"
 
 try {
-  Wait-ForTunnelRpc -rpcUrl $tunnelUrl -timeoutSeconds 30
+  Wait-ForTunnelRpc -rpcUrl $tunnelUrl -timeoutSeconds 90
 
   $localChainHex = Invoke-JsonRpc -rpcUrl $localRpcUrl -method 'eth_chainId'
   $tunnelChainHex = Invoke-JsonRpc -rpcUrl $tunnelUrl -method 'eth_chainId'

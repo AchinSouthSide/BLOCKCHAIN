@@ -204,6 +204,20 @@ function Wait-ForTunnelRpc([string]$rpcUrl, [int]$timeoutSeconds = 30) {
     Start-Sleep -Seconds 2
   }
   if ($lastError) {
+    # Extra hint: some local DNS resolvers block/lag on *.trycloudflare.com
+    try {
+      $hostName = ([Uri]$rpcUrl).Host
+      if ($hostName -and ($lastError -match 'could not be resolved|No such host is known|Name resolution')) {
+        $localNs = (nslookup $hostName 2>$null) | Out-String
+        $cfNs = (nslookup $hostName 1.1.1.1 2>$null) | Out-String
+        if (($localNs -match 'Non-existent domain|NXDOMAIN|can\x27t find') -and ($cfNs -match 'Addresses?:')) {
+          throw "Tunnel hostname resolves on 1.1.1.1 but NOT on your current DNS. Fix: set Windows DNS to 1.1.1.1 / 1.0.0.1 (or 8.8.8.8 / 8.8.4.4), then rerun. Hostname: $hostName"
+        }
+      }
+    } catch {
+      # ignore nslookup diagnostics errors and fall through to generic error
+    }
+
     throw "Tunnel RPC not reachable within ${timeoutSeconds}s. Last error: $lastError"
   }
   throw "Tunnel RPC not reachable within ${timeoutSeconds}s."

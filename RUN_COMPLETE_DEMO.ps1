@@ -238,8 +238,11 @@ function Find-TunnelUrl([string]$text) {
   if (-not $text) { return $null }
   # cloudflared output can be wrapped with newlines/spaces in the middle of the URL.
   $flat = ($text -replace '\s', '')
-  if ($flat -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') {
-    return $matches[0]
+  $regex = [regex]'https://[a-zA-Z0-9-]+\.trycloudflare\.com'
+  $all = $regex.Matches($flat)
+  if ($all.Count -gt 0) {
+    # cloudflared can print multiple URLs if it reconnects/rotates; use the newest.
+    return $all[$all.Count - 1].Value
   }
   return $null
 }

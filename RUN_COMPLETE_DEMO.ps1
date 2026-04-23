@@ -127,22 +127,46 @@ if (-not $chainId) { throw 'Missing chainId in deployment.json' }
 
 function Get-ContractCode([string]$rpcUrl, [string]$address) {
   try {
-    $payload = @{ jsonrpc = '2.0'; id = 1; method = 'eth_getCode'; params = @($address, 'latest') } | ConvertTo-Json -Compress
-    $resp = Invoke-RestMethod -Method Post -Uri $rpcUrl -ContentType 'application/json' -Body $payload -TimeoutSec 5
-    return [string]$resp.result
+    return [string](Invoke-JsonRpc -rpcUrl $rpcUrl -method 'eth_getCode' -params @($address, 'latest'))
   } catch {
     return $null
   }
 }
 
-function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @()) {
-  $payload = @{ jsonrpc = '2.0'; id = 1; method = $method; params = $params } | ConvertTo-Json -Compress
-  $resp = Invoke-RestMethod -Method Post -Uri $rpcUrl -ContentType 'application/json' -Body $payload -TimeoutSec 8
-  if ($null -ne $resp.error) {
-    $msg = [string]($resp.error.message)
-    throw "RPC error calling ${method}: $msg"
+function Get-HttpClient([int]$timeoutSeconds = 8) {
+  if (-not $script:__fieldbookingHttpClient) {
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    $script:__fieldbookingHttpClient = [System.Net.Http.HttpClient]::new($handler)
   }
-  return $resp.result
+  $script:__fieldbookingHttpClient.Timeout = [TimeSpan]::FromSeconds($timeoutSeconds)
+  return $script:__fieldbookingHttpClient
+}
+
+function Invoke-JsonRpc([string]$rpcUrl, [string]$method, [object[]]$params = @()) {
+  $client = Get-HttpClient -timeoutSeconds 8
+  $payload = @{ jsonrpc = '2.0'; id = 1; method = $method; params = $params } | ConvertTo-Json -Compress
+  $content = [System.Net.Http.StringContent]::new($payload, [System.Text.Encoding]::UTF8, 'application/json')
+
+  try {
+    $respMsg = $client.PostAsync($rpcUrl, $content).GetAwaiter().GetResult()
+    $text = $respMsg.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+
+    if (-not $respMsg.IsSuccessStatusCode) {
+      throw "HTTP $([int]$respMsg.StatusCode) calling ${method}: $text"
+    }
+
+    $resp = $text | ConvertFrom-Json
+    if ($null -ne $resp.error) {
+      $msg = [string]($resp.error.message)
+      throw "RPC error calling ${method}: $msg"
+    }
+
+    return $resp.result
+  } catch {
+    # Normalize common network errors for clearer output
+    $msg = $_.Exception.Message
+    throw "RPC request failed calling ${method}: $msg"
+  }
 }
 
 function Parse-ChainId([string]$chainIdValue) {
